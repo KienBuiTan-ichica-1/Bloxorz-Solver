@@ -1,0 +1,51 @@
+stage,group,algorithm,cost_model,runs,found,solution_length,path_cost,expanded_nodes,search_time_s,peak_memory_bytes,max_frontier
+Level 1 - Basic,A - Basic,BFS,uniform,3,True,2,2.000,18,0.001189,11968,13
+Level 1 - Basic,A - Basic,DFS,uniform,3,True,2,2.000,37,0.001937,11296,12
+Level 1 - Basic,A - Basic,IDS,uniform,3,True,2,2.000,6,0.000474,3848,18
+Level 1 - Basic,A - Basic,UCS,risk,3,True,2,4.000,18,0.001325,8632,13
+Level 1 - Basic,A - Basic,A* (goal),risk,3,True,2,4.000,6,0.000608,7514,13
+Level 2 - Vertical Move,A - Basic,BFS,uniform,3,True,4,4.000,45,0.002311,12848,19
+Level 2 - Vertical Move,A - Basic,DFS,uniform,3,True,17,17.000,18,0.001188,10168,22
+Level 2 - Vertical Move,A - Basic,IDS,uniform,3,True,4,4.000,45,0.003185,7800,39
+Level 2 - Vertical Move,A - Basic,UCS,risk,3,True,4,8.000,45,0.004436,17224,19
+Level 2 - Vertical Move,A - Basic,A* (goal),risk,3,True,4,8.000,27,0.003323,20874,29
+Level 3 - Fragile Tiles,B - Fragile,BFS,uniform,3,True,8,8.000,49,0.003908,11488,11
+Level 3 - Fragile Tiles,B - Fragile,DFS,uniform,3,True,17,17.000,24,0.001956,10504,18
+Level 3 - Fragile Tiles,B - Fragile,IDS,uniform,3,True,8,8.000,315,0.018581,11664,48
+Level 3 - Fragile Tiles,B - Fragile,UCS,risk,3,True,8,17.000,49,0.003977,15824,11
+Level 3 - Fragile Tiles,B - Fragile,A* (goal),risk,3,True,8,17.000,49,0.003993,17594,13
+Level 4 - Soft Switch,C - Switches,BFS,uniform,3,True,10,10.000,37,0.001884,10288,8
+Level 4 - Soft Switch,C - Switches,DFS,uniform,3,True,14,14.000,26,0.001772,9728,9
+Level 4 - Soft Switch,C - Switches,IDS,uniform,3,True,10,10.000,198,0.011066,10760,37
+Level 4 - Soft Switch,C - Switches,UCS,risk,3,True,10,19.000,37,0.002902,11464,7
+Level 4 - Soft Switch,C - Switches,A* (goal),risk,3,True,10,19.000,31,0.002502,12186,6
+Level 5 - Split Switch,C - Switches,BFS,uniform,3,True,6,6.000,20,0.000990,6968,9
+Level 5 - Split Switch,C - Switches,DFS,uniform,3,True,6,6.000,72,0.004442,17104,23
+Level 5 - Split Switch,C - Switches,IDS,uniform,3,True,6,6.000,45,0.002211,5656,18
+Level 5 - Split Switch,C - Switches,UCS,risk,3,True,6,11.000,20,0.001556,9816,9
+Level 5 - Split Switch,C - Switches,A* (goal),risk,3,True,6,11.000,18,0.001446,8842,9
+Level 6 - Heavy Switch,C - Switches,BFS,uniform,3,True,8,8.000,30,0.001262,7464,7
+Level 6 - Heavy Switch,C - Switches,DFS,uniform,3,True,12,12.000,26,0.001387,9048,8
+Level 6 - Heavy Switch,C - Switches,IDS,uniform,3,True,8,8.000,110,0.004972,8792,30
+Level 6 - Heavy Switch,C - Switches,UCS,risk,3,True,8,15.000,29,0.001887,10360,7
+Level 6 - Heavy Switch,C - Switches,A* (goal),risk,3,True,8,15.000,19,0.001365,10434,7
+Level 7 - Fragile + Bridge,D - Combined,BFS,uniform,3,True,14,14.000,38,0.001776,8768,7
+Level 7 - Fragile + Bridge,D - Combined,DFS,uniform,3,True,14,14.000,26,0.001527,9616,7
+Level 7 - Fragile + Bridge,D - Combined,IDS,uniform,3,True,14,14.000,479,0.027292,12984,37
+Level 7 - Fragile + Bridge,D - Combined,UCS,risk,3,True,14,26.000,38,0.003066,11464,7
+Level 7 - Fragile + Bridge,D - Combined,A* (goal),risk,3,True,14,26.000,38,0.003021,12522,6
+Level 8 - Three Bridges,D - Combined,BFS,uniform,3,True,18,18.000,79,0.004607,20656,8
+Level 8 - Three Bridges,D - Combined,DFS,uniform,3,True,34,34.000,106,0.007040,36000,20
+Level 8 - Three Bridges,D - Combined,IDS,uniform,3,True,18,18.000,1026,0.064226,20992,78
+Level 8 - Three Bridges,D - Combined,UCS,risk,3,True,18,31.000,79,0.007194,26248,8
+Level 8 - Three Bridges,D - Combined,A* (goal),risk,3,True,18,31.000,59,0.005917,18938,9
+Level 9 - Open Field,A - Basic,BFS,uniform,3,True,10,10.000,266,0.017124,60176,51
+Level 9 - Open Field,A - Basic,DFS,uniform,3,True,83,83.000,158,0.011059,58376,118
+Level 9 - Open Field,A - Basic,IDS,uniform,3,True,10,10.000,2667,0.191973,44580,266
+Level 9 - Open Field,A - Basic,UCS,risk,3,True,10,20.000,266,0.027705,72856,51
+Level 9 - Open Field,A - Basic,A* (goal),risk,3,True,10,20.000,174,0.018846,77978,61
+Level 10 - Fragile + Heavy Switch,D - Combined,BFS,uniform,3,True,10,10.000,32,0.001328,7752,7
+Level 10 - Fragile + Heavy Switch,D - Combined,DFS,uniform,3,True,16,16.000,36,0.001788,10056,8
+Level 10 - Fragile + Heavy Switch,D - Combined,IDS,uniform,3,True,10,10.000,162,0.006952,10064,32
+Level 10 - Fragile + Heavy Switch,D - Combined,UCS,risk,3,True,10,20.000,30,0.001919,10664,6
+Level 10 - Fragile + Heavy Switch,D - Combined,A* (goal),risk,3,True,10,20.000,21,0.001530,10754,6

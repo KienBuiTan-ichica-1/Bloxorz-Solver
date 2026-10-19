@@ -1,0 +1,20 @@
+{
+  "name": "Level 4 - Soft Switch",
+  "group": "C - Switches",
+  "description": "Soft switch must be pressed to open the bridge blocking the goal",
+  "map": [
+    "............",
+    "#S###s###0G#",
+    "............"
+  ],
+  "start": [1, 1],
+  "bridges": ["closed"],
+  "switches": [
+    {
+      "kind": "soft",
+      "mode": "toggle",
+      "cells": [[1, 5]],
+      "bridges": [0]
+    }
+  ]
+}

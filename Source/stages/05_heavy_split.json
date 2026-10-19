@@ -1,0 +1,23 @@
+{
+  "name": "Level 5 - Split Switch",
+  "group": "C - Switches",
+  "description": "Split switch teleports the block across a gap; cubes merge and finish",
+  "map": [
+    "...............",
+    "#S##t####...###",
+    "...........##..",
+    "............G.."
+  ],
+  "start": [1, 1],
+  "bridges": [],
+  "switches": [
+    {
+      "kind": "split",
+      "mode": "permanent",
+      "set": "open",
+      "cells": [[1, 4]],
+      "bridges": [],
+      "teleport": [[1, 12], [2, 12]]
+    }
+  ]
+}

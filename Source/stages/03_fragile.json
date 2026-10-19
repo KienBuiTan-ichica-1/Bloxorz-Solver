@@ -1,0 +1,13 @@
+{
+  "name": "Level 3 - Fragile Tiles",
+  "group": "B - Fragile",
+  "description": "Must lie across fragile tiles, cannot stand",
+  "map": [
+    "#######",
+    "#SFFFFG#",
+    "#######"
+  ],
+  "start": [1, 1],
+  "bridges": [],
+  "switches": []
+}

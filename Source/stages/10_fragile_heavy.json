@@ -1,0 +1,20 @@
+{
+  "name": "Level 10 - Fragile + Heavy Switch",
+  "group": "D - Combined",
+  "description": "Lying over fragile, then standing on a heavy switch to open the bridge",
+  "map": [
+    ".............",
+    "#S##F##x##0G#",
+    "............."
+  ],
+  "start": [1, 1],
+  "bridges": ["closed"],
+  "switches": [
+    {
+      "kind": "heavy",
+      "mode": "toggle",
+      "cells": [[1, 7]],
+      "bridges": [0]
+    }
+  ]
+}

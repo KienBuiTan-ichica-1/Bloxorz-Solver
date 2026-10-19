@@ -1,0 +1,20 @@
+{
+  "name": "Level 6 - Heavy Switch",
+  "group": "C - Switches",
+  "description": "Heavy switch only reacts when the block stands on it",
+  "map": [
+    "...........",
+    "#S###x##0G#",
+    "..........."
+  ],
+  "start": [1, 1],
+  "bridges": ["closed"],
+  "switches": [
+    {
+      "kind": "heavy",
+      "mode": "toggle",
+      "cells": [[1, 5]],
+      "bridges": [0]
+    }
+  ]
+}
