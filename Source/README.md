@@ -3,13 +3,15 @@
 A playable **Bloxorz** implementation (core mechanics + advanced tiles) together
 with four families of search algorithms — **BFS, DFS, IDS, UCS, A\*** — built
 from scratch, plus an experiment harness that measures search time, peak memory,
-expanded nodes and solution length.
+expanded nodes and solution length. The board is rendered in **real 3D** with
+PyOpenGL (lighting, shadows, rolling animation, orbit camera).
 
 ## Requirements
 
 * Python 3.10+ (tested on 3.11, Windows)
-* `pip install -r requirements.txt` (pygame for the GUI, matplotlib for the
-  charts, pytest for the tests)
+* `pip install -r requirements.txt` (pygame + PyOpenGL for the 3D GUI, matplotlib
+  for the charts, pytest for the tests)
+* A GPU/driver with OpenGL 2.0+ (any modern machine)
 
 Step-by-step install / run / build instructions (virtualenv, packaging the
 submission, troubleshooting): see **[BUILD_AND_RUN.md](BUILD_AND_RUN.md)**.
@@ -33,19 +35,25 @@ python main.py --all                # every solver on every stage
 | `M` | Merge two adjacent cubes |
 | `R` | Restart the stage |
 | `Esc` | Quit |
+| Left / right drag | Orbit the 3D camera |
+| Mouse wheel / `+` `-` | Zoom |
+| `Q` / `E` | Rotate the camera |
+| `PageUp` / `PageDown` | Camera pitch |
+| `T` | Top-down view |
+| `F` | Reset the camera |
 | Buttons | New Game, Restart, `<` `>` stage, Undo, Stop, **BFS / DFS / IDS / UCS / A\*** |
 
 The right-hand panel shows the current state, the legend, and — after a solver
 finishes — the full measurement set (solution length, path cost, expanded nodes,
 search time, peak memory, max frontier). Solver results are replayed on the
-board with a progress bar.
+board with a progress bar; the block rolls through a real 3D animation.
 
 ## Project layout
 
 ```
 Source/
 ├── main.py                 entry point (GUI + CLI)
-├── gui_pygame.py           pygame GUI
+├── gui_gl.py               PyOpenGL 3D GUI (board, block, camera, overlay UI)
 ├── requirements.txt
 ├── README.md                what this project is and how it works
 ├── BUILD_AND_RUN.md         install / run / test / package (VN)

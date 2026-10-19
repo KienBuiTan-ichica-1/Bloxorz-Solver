@@ -77,7 +77,8 @@ Nội dung `requirements.txt`:
 
 | Gói | Phiên bản | Dùng để |
 |---|---|---|
-| `pygame` | >= 2.5 | giao diện GUI |
+| `pygame` | >= 2.5 | cửa sổ, sự kiện, font cho GUI |
+| `PyOpenGL` | >= 3.1.6 | render bàn cờ/khối 3D (OpenGL) |
 | `matplotlib` | >= 3.7 | vẽ biểu đồ experiments |
 | `pytest` | >= 7.0 | chạy bộ test |
 
@@ -90,7 +91,7 @@ python -m pip install ruff
 ### 2.4. Kiểm tra cài đặt
 
 ```powershell
-python -c "import pygame, matplotlib, pytest; print('pygame', pygame.version.ver)"
+python -c "import pygame, OpenGL, matplotlib, pytest; print('pygame', pygame.version.ver, '| OpenGL', OpenGL.__version__)"
 python main.py --list          # liệt kê 10 stage
 python -m pytest tests/ -q     # kỳ vọng: 98 passed
 ```
@@ -118,6 +119,12 @@ Bảng điều khiển:
 | `M` | ghép hai khối phụ thành khối 1×1×2 |
 | `R` | chơi lại stage hiện tại |
 | `Esc` | thoát |
+| Kéo chuột trái/phải | xoay camera 3D quanh bàn cờ |
+| Lăn chuột / `+` `-` | zoom in / out |
+| `Q` / `E` | xoay camera sang trái / phải |
+| `PageUp` / `PageDown` | nâng / hạ góc nhìn |
+| `T` | nhìn từ trên xuống (top-down) |
+| `F` | đưa camera về mặc định |
 | `New Game` | về stage số 1 |
 | `Restart` | chơi lại stage hiện tại |
 | `<` `>` | chuyển stage trước / kế |
@@ -125,9 +132,11 @@ Bảng điều khiển:
 | `Stop` | dừng việc phát lại lời giải |
 | `BFS` `DFS` `IDS` `UCS` `A*` | chạy solver và phát lại lời giải (có thanh tiến độ) |
 
-Panel bên phải hiển thị trạng thái hiện tại (vị trí, hướng, cầu, lượt đi) và,
-sau khi chạy solver: độ dài lời giải, tổng chi phí, số node đã mở rộng, thời gian
-tìm, bộ nhớ đỉnh, kích thước frontier lớn nhất.
+Bàn cờ, khối 1×1×2 và hai khối đơn vị ở chế độ split được render **3D thật**
+bằng PyOpenGL (ánh sáng, bóng đổ, animation lăn). Panel bên phải hiển thị trạng
+thái hiện tại (vị trí, hướng, cầu, lượt đi) và, sau khi chạy solver: độ dài lời
+giải, tổng chi phí, số node đã mở rộng, thời gian tìm, bộ nhớ đỉnh, kích thước
+frontier lớn nhất.
 
 ### 3.2. Chạy từ dòng lệnh (không mở GUI)
 
@@ -266,11 +275,13 @@ rm -rf StudentID1_StudentID2
 | Triệu chứng | Nguyên nhân | Cách xử lý |
 |---|---|---|
 | `ModuleNotFoundError: No module named 'pygame'` | chưa cài requirements, hoặc chạy nhầm bản Python 3.14 của `py` | `python -m pip install -r requirements.txt`; kiểm tra `python -c "import sys; print(sys.executable)"` |
+| `ModuleNotFoundError: No module named 'OpenGL'` | chưa cài PyOpenGL | `python -m pip install -r requirements.txt` |
+| `pygame.error: Could not create GL context` / cửa sổ trắng | driver/GPU không hỗ trợ OpenGL, chạy qua Remote Desktop, hoặc máy ảo thiếu driver | cập nhật driver GPU; chạy trực tiếp trên máy (không qua RDP); thử tắt MSAA bằng cách bỏ `GL_MULTISAMPLE*` trong `gui_gl.py`; hoặc cài Mesa3D nếu dùng máy ảo |
 | `ModuleNotFoundError: No module named 'bloxorz'` | chạy sai thư mục | `cd` vào `Source/` rồi chạy lại |
 | `python: command not found` | Python chưa có trong PATH | dùng `py -3.11 main.py` (chỉ định đúng phiên bản) hoặc thêm Python vào PATH |
 | PowerShell từ chối `Activate.ps1` | chính sách thực thi | `Set-ExecutionPolicy -Scope Process -ExecutionPolicy RemoteSigned` |
 | `pip` tải chậm / lỗi mạng | mạng tới PyPI | kiểm tra kết nối rồi chạy lại `python -m pip install -r requirements.txt`, hoặc thử mạng khác / `pip install --retries 5` |
-| Không thấy cửa sổ GUI (máy ảo, CI, server) | không có màn hình | dùng biến môi trường `SDL_VIDEODRIVER=dummy` (chỉ để kiểm tra, không thấy hình):<br>PowerShell: `$env:SDL_VIDEODRIVER="dummy"; python main.py`<br>bash: `SDL_VIDEODRIVER=dummy python main.py` |
+| Không thấy cửa sổ GUI (máy ảo, CI, server) | không có màn hình / không có OpenGL | GUI 3D cần một OpenGL context thật; trên server headless hãy dùng CLI (`python main.py --solve ...`) hoặc cài Mesa3D (llvmpipe). Biến `SDL_VIDEODRIVER=dummy` **không** đủ để render OpenGL |
 | Chữ tiếng Việt hiện thành `?` | code page console | Windows: `chcp 65001` trước khi chạy; file mã hoá UTF-8 nên nội dung không hỏng |
 | Solver chạy hơi "đơ" vài chục ms | đo thời gian có độ nhiễu | dùng `python experiments/run_experiments.py --runs 5` để lấy trung vị |
 | `IDS` hoặc `DFS` cho lời giải dài hơn BFS | DFS không tối ưu; IDS thì có (đã có transposition table) | dùng `BFS`/`IDS`/`UCS`/`A*` khi cần lời giải ngắn |

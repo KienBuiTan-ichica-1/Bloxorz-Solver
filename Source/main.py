@@ -80,7 +80,7 @@ def cmd_all(cost_model: str) -> None:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Bloxorz solver")
     parser.add_argument("--gui", action="store_true",
-                        help="launch the pygame GUI (default when no options given)")
+                        help="launch the OpenGL 3D GUI (default when no options given)")
     parser.add_argument("--list", action="store_true", help="list available stages")
     parser.add_argument("--solve", metavar="ALGO",
                         choices=sorted(SOLVERS),
@@ -105,7 +105,7 @@ def main(argv: list[str] | None = None) -> int:
         cmd_all(args.cost)
         return 0
 
-    from gui_pygame import main as gui_main
+    from gui_gl import main as gui_main
     gui_main()
     return 0
 

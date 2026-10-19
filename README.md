@@ -1,6 +1,6 @@
 # Bloxorz Solver — CSC14003 Project 1
 
-> Đồ án môn **Nhập môn Trí tuệ Nhân tạo (CSC14003)** — Cài đặt game **Bloxorz** kèm bộ giải bằng các thuật toán tìm kiếm **BFS, DFS, IDS, UCS, A\***, giao diện pygame và bộ thực nghiệm đo hiệu năng.
+> Đồ án môn **Nhập môn Trí tuệ Nhân tạo (CSC14003)** — Cài đặt game **Bloxorz** kèm bộ giải bằng các thuật toán tìm kiếm **BFS, DFS, IDS, UCS, A\***, giao diện **3D thật bằng PyOpenGL** và bộ thực nghiệm đo hiệu năng.
 
 Bloxorz là trò chơi xếp hình: điều khiển khối hộp **1 × 1 × 2** lăn trên bàn cờ để rơi đứng vào ô đích. Điểm thú vị của bài toán là **hướng của khối** (đứng / nằm ngang / nằm dọc) là một phần của trạng thái, cùng với trạng thái các cây cầu — biến nó thành một bài toán tìm kiếm lý tưởng để phân tích các thuật toán có/không có thông tin.
 
@@ -14,7 +14,7 @@ Bloxorz là trò chơi xếp hình: điều khiển khối hộp **1 × 1 × 2**
   - **Cầu (bridge)** đóng/mở, điều khiển bởi công tắc.
   - Ba loại công tắc: **soft** (kích hoạt mọi hướng), **heavy** (chỉ khi khối đứng), **split** (tách khối thành hai khối 1×1×1, điều khiển luân phiên và ghép lại).
   - Hai kiểu tác động cầu: **toggle** và **permanent**.
-- **GUI pygame**: chơi thủ công, chọn stage, undo, restart, chạy solver và **phát lại lời giải** kèm thanh tiến độ.
+- **GUI 3D (PyOpenGL)**: bàn cờ, khối hộp và hai khối đơn vị được render 3D thật với ánh sáng, bóng đổ và animation lăn; camera xoay/zoom tự do. Chơi thủ công, chọn stage, undo, restart, chạy solver và **phát lại lời giải** kèm thanh tiến độ.
 - **5 solver** tự cài đặt, không dùng thư viện tìm kiếm: BFS, DFS, IDS, UCS, A\*.
 - **Đo hiệu năng**: thời gian tìm kiếm, bộ nhớ đỉnh, số node mở rộng, độ dài lời giải, chi phí đường đi, frontier lớn nhất.
 - **CLI** chạy solver không cần GUI + **bộ thực nghiệm** sinh CSV và biểu đồ cho báo cáo.
@@ -30,7 +30,7 @@ Project1/
 ├── AI_Project_1.md           ← đề bài
 └── Source/
     ├── main.py               ← entry point (GUI + CLI)
-    ├── gui_pygame.py         ← giao diện pygame
+    ├── gui_gl.py             ← giao diện 3D PyOpenGL
     ├── requirements.txt
     ├── README.md             ← mô tả chi tiết model & định dạng stage
     ├── BUILD_AND_RUN.md      ← hướng dẫn cài đặt / chạy / đóng gói (tiếng Việt)
@@ -51,7 +51,7 @@ Project1/
 
 ## Cài đặt & chạy
 
-Yêu cầu: **Python 3.10+** (đã kiểm chứng trên 3.11, Windows).
+Yêu cầu: **Python 3.10+** (đã kiểm chứng trên 3.11, Windows) và driver có **OpenGL 2.0+**.
 
 ```bash
 cd Source
@@ -75,6 +75,12 @@ python main.py
 | `M` | Ghép hai khối phụ |
 | `R` | Chơi lại stage |
 | `Esc` | Thoát |
+| Kéo chuột trái/phải | Xoay camera 3D |
+| Lăn chuột / `+` `-` | Zoom |
+| `Q` / `E` | Xoay camera |
+| `PageUp` / `PageDown` | Góc nhìn |
+| `T` | Nhìn từ trên xuống |
+| `F` | Reset camera |
 | Nút `BFS` `DFS` `IDS` `UCS` `A*` | Chạy solver và phát lại lời giải |
 
 ### Dòng lệnh
@@ -188,4 +194,4 @@ Chi tiết từng stage và biểu đồ: [`Source/experiments/charts/summary.md
 
 ## Công nghệ
 
-Python 3.11 · pygame · matplotlib · pytest
+Python 3.11 · pygame · PyOpenGL · matplotlib · pytest
