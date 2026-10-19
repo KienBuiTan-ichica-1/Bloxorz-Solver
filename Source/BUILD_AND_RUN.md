@@ -14,7 +14,7 @@ Mọi lệnh dưới đây được viết cho **thư mục `Source/`** (nơi ch
 | Hệ điều hành | Windows 10/11, macOS hoặc Linux | Windows 10/11 |
 | Python | **3.10 trở lên** | Python 3.11.9 |
 | RAM / ổ đĩa | ~200 MB RAM trống, ~100 MB ổ đĩa | — |
-| Màn hình (GUI) | cửa sổ 1180×780, bàn cờ tự thu nhỏ nếu to hơn | — |
+| Màn hình (GUI) | cửa sổ 1280×820, bàn cờ tự thu nhỏ nếu to hơn | — |
 | GPU / Internet | không cần (Internet chỉ cần khi `pip install`) | — |
 
 > ⚠️ **Lưu ý trình thông dịch:** trên Windows có thể tồn tại hai lệnh Python
@@ -244,7 +244,8 @@ Remove-Item $dst -Recurse -Force
 Get-Item $zip | Select-Object Name, @{n='MB';e={[math]::Round($_.Length/1MB,2)}}
 ```
 
-Kết quả đã đo: **~0,4 MB / 33 file**, không có `__pycache__`.
+Kết quả đã đo: **~0,53 MB / 36 file** (gồm `screenshots/`), không có
+`__pycache__`.
 
 ### 4.2. macOS / Linux
 

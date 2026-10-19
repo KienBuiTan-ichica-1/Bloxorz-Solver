@@ -22,6 +22,23 @@ Bloxorz là trò chơi xếp hình: điều khiển khối hộp **1 × 1 × 2**
 
 ---
 
+## Giao diện 3D
+
+Bàn cờ và khối được render bằng OpenGL (fixed-function, không shader) trong cửa sổ pygame: ánh sáng định hướng 2 nguồn, depth buffer, MSAA 4× nếu driver hỗ trợ.
+
+![Bàn cờ 3D — Level 9](Source/screenshots/board_3d.png)
+
+- **Ô đích** là một hố lõm có viền xanh; **fragile** có gạch chéo; **cầu đóng** chìm xuống dưới mặt sàn; **3 loại switch** vẽ dạng đĩa / dấu X / ngoặc.
+- **Animation lăn thật**: khối xoay 90° quanh cạnh tiếp xúc (easing 0.15 s); khi solver phát lại, mỗi bước chờ animation xong mới đi tiếp; khối rơi đứng vào đích thì chìm xuống hố.
+- **Camera quỹ đạo**: kéo chuột để xoay, lăn chuột để zoom, `T` nhìn từ trên, `F` reset.
+- **UI overlay**: panel/nút/legend/text được vẽ ở một lượt ortho phía trên scene; chuỗi ký tự được cache thành texture OpenGL.
+
+![Animation lăn giữa chừng](Source/screenshots/rolling_3d.png)
+
+![Tile nâng cao: fragile + bridge + soft switch — Level 7](Source/screenshots/switches_3d.png)
+
+---
+
 ## Cấu trúc dự án
 
 ```
@@ -40,6 +57,7 @@ Project1/
     │   └── search.py         ← BFS / DFS / IDS / UCS / A* + metrics
     ├── stages/               ← 10 stage chia 4 nhóm độ khó
     ├── tests/                ← pytest suite
+    ├── screenshots/          ← ảnh chụp giao diện 3D cho README
     └── experiments/
         ├── run_experiments.py
         ├── make_charts.py

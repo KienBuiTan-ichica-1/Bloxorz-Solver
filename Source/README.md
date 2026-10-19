@@ -19,7 +19,7 @@ submission, troubleshooting): see **[BUILD_AND_RUN.md](BUILD_AND_RUN.md)**.
 ## Run
 
 ```bash
-python main.py                      # GUI (default)
+python main.py                      # 3D GUI (default)
 python main.py --list               # list the 10 stages
 python main.py --solve A* --stage 7 # solve stage 7 from the terminal
 python main.py --solve UCS --cost uniform -v   # print the move sequence
@@ -48,6 +48,36 @@ finishes — the full measurement set (solution length, path cost, expanded node
 search time, peak memory, max frontier). Solver results are replayed on the
 board with a progress bar; the block rolls through a real 3D animation.
 
+![3D board (Level 9)](screenshots/board_3d.png)
+
+## 3D view
+
+`gui_gl.py` renders everything with the **fixed-function OpenGL** pipeline (no
+shaders) inside a single pygame window (`OPENGL | DOUBLEBUF`, 4× MSAA when the
+driver supports it):
+
+* **Scene** — every cell is a 1×1 box with per-face normals; the goal is a
+  recessed cavity with a green rim, fragile tiles get hatch marks, switches are
+  drawn as flat shapes (disc / cross / brackets) and a closed bridge sinks below
+  the floor plane. The board is centred at the origin and lit by two directional
+  lights (world space) with `GL_COLOR_MATERIAL`.
+* **Camera** — `gluPerspective` + `gluLookAt`, orbit angles and distance stored
+  as `(yaw, pitch, dist)`; drag/wheel/`Q E PageUp PageDown T F` modify them.
+* **Roll animation** — a roll rotates the box 90° about the contact edge
+  (pivot = bottom edge in the direction of the move, smoothstep easing over
+  0.15 s). The replay loop only advances a step while no animation is running,
+  and the block sinks into the hole once the goal is reached.
+* **UI overlay** — after the 3D pass an ortho pass draws the panel, buttons and
+  text; strings are rendered by pygame fonts and uploaded to a small GL texture
+  cache.
+* **Screenshots / headless checks** — set `BLOXORZ_GL_FRAMES` to quit after N
+  frames and `BLOXORZ_GL_SHOT=path.png` to save a screenshot (this is how the
+  images in `screenshots/` were produced).
+
+![Rolling animation (mid-roll)](screenshots/rolling_3d.png)
+
+![Advanced tiles: fragile, bridge, soft switch (Level 7)](screenshots/switches_3d.png)
+
 ## Project layout
 
 ```
@@ -64,6 +94,7 @@ Source/
 │   └── __init__.py
 ├── stages/                 10 stages in 4 difficulty groups
 ├── tests/                  pytest suite (unit + all solvers on all stages)
+├── screenshots/            README figures (generated with BLOXORZ_GL_SHOT)
 └── experiments/
     ├── run_experiments.py  produces results.csv
     ├── make_charts.py      produces charts/*.png + charts/summary.md
