@@ -34,6 +34,7 @@ from __future__ import annotations
 import math
 import os
 import sys
+import threading
 from contextlib import suppress
 from pathlib import Path
 
@@ -95,6 +96,7 @@ TEXT = (238, 240, 246)
 DIM = (150, 156, 172)
 
 LEGEND = [
+    ("bg", "Void"),
     ("floor_top", "Floor"),
     ("goal", "Goal"),
     ("fragile_top", "Fragile"),
@@ -104,12 +106,6 @@ LEGEND = [
     ("heavy", "Heavy switch"),
     ("split", "Split switch"),
 ]
-
-STATUS_COLORS = {"text": TEXT, "dim": DIM, "accent": None, "good": None, "bad": None}
-
-
-def _c255(t):
-    return (int(t[0] * 255), int(t[1] * 255), int(t[2] * 255))
 
 
 # --------------------------------------------------------------------------- #
@@ -159,6 +155,10 @@ class GUI:
         self.anim = None
         self.sink = 0.0
         self._frame = 0
+        self._solver_token = 0
+        self._solver_stop = None
+        self._solver_thread = None
+        self._solver_result = None
 
         self._setup_gl_state()
         self.stage_idx = 0
@@ -198,6 +198,7 @@ class GUI:
 
     # ------------------------------------------------------------- stage mgmt
     def restart(self):
+        self._cancel_solver()
         self.stage = self.stages[self.stage_idx]
         self.engine = Engine(self.stage)
         self.state = self.engine.initial_state()
@@ -239,6 +240,9 @@ class GUI:
             self.replaying = False
             self.replay = []
             self.replay_idx = 0
+        self._cancel_solver()
+        self.result = None  # the solver metrics no longer describe this state
+        self._active_algo = None
         self._advance(old, new, action)
         self.history.append(action)
         if self.engine.is_goal(self.state):
@@ -286,22 +290,55 @@ class GUI:
             "t": 0.0,
         }
 
-    def run_solver(self, algo):
-        self.status = f"Running {algo}..."
-        self.status_color = C["accent"]
-        pygame.display.flip()
+    def _cancel_solver(self):
+        """Invalidate any running solver thread and ask it to stop."""
+        self._solver_token += 1
+        if self._solver_stop is not None:
+            self._solver_stop.set()
+        self._solver_stop = None
+        self._solver_thread = None
+        self._solver_result = None
+
+    def _solver_worker(self, engine, algo, token, stop):
         try:
-            res = solve(self.engine, algo)
-        except Exception as exc:  # noqa: BLE001 - defensive
-            self.status = f"{algo} error: {exc}"
+            result = solve(engine, algo, should_stop=stop.is_set)
+        except Exception as exc:  # noqa: BLE001 - reported in the UI thread
+            result = exc
+        self._solver_result = (token, algo, result)
+
+    def _poll_solver(self):
+        pending = self._solver_result
+        if pending is None:
+            return
+        self._solver_result = None
+        token, algo, res = pending
+        if token != self._solver_token:
+            return  # a newer stage / solver run superseded this one
+        self._solver_stop = None
+        self._solver_thread = None
+        if isinstance(res, Exception):
+            self.result = None
+            self._active_algo = None
+            self.status = f"{algo} error: {res}"
             self.status_color = C["bad"]
+            return
+        if res.timed_out:  # cancelled by the Stop button
+            self.result = None
+            self._active_algo = None
+            self.replaying = False
+            self.status = f"{algo}: stopped"
+            self.status_color = TEXT
             return
         if not res.found:
             self.result = res
+            self.replay = []
+            self.replay_idx = 0
+            self.replaying = False
+            self._active_algo = None
             self.status = f"{algo}: no solution"
             self.status_color = C["bad"]
             return
-        self.restart()
+        self.restart()  # replay from the initial state
         self.result = res
         self.replay = list(res.actions)
         self.replay_idx = 0
@@ -312,6 +349,22 @@ class GUI:
             f"{res.expanded_nodes} nodes, {res.search_time_s * 1000:.1f} ms"
         )
         self.status_color = C["good"]
+
+    def run_solver(self, algo):
+        self.restart()  # clears the board and cancels any previous solver
+        self._active_algo = algo
+        self.status = f"Solving {algo}..."
+        self.status_color = C["accent"]
+        token = self._solver_token
+        stop = threading.Event()
+        self._solver_stop = stop
+        thread = threading.Thread(
+            target=self._solver_worker,
+            args=(self.engine, algo, token, stop),
+            daemon=True,
+        )
+        self._solver_thread = thread
+        thread.start()
 
     def _tick_replay(self):
         if not self.replaying or not self.replay or self.anim is not None:
@@ -339,6 +392,7 @@ class GUI:
             self.status_color = C["bad"]
 
     def _update(self, dt):
+        self._poll_solver()
         if self.anim is not None:
             self.anim["t"] += dt / BLOCK_ROLL_TIME
             if self.anim["t"] >= 1.0:
@@ -709,7 +763,7 @@ class GUI:
         GL.glEnd()
 
     def _text_tex(self, text, font, color):
-        key = (text, font.get_height(), color)
+        key = (id(font), text, font.get_height(), color)
         hit = self._tex_cache.get(key)
         if hit is not None:
             return hit
@@ -913,8 +967,13 @@ class GUI:
                 self._switch_stage(1)
             elif b.text == "Undo":
                 if self.history:
+                    self._cancel_solver()
                     self.history.pop()
                     self.replaying = False
+                    self.replay = []
+                    self.replay_idx = 0
+                    self.result = None
+                    self._active_algo = None
                     self._rebuild_from_history()
                     self.status = f"Undo - {len(self.history)} moves left"
                     self.status_color = TEXT
@@ -922,7 +981,17 @@ class GUI:
                     self.status = "Nothing to undo"
                     self.status_color = DIM
             elif b.text == "Stop":
+                was_solving = (self._solver_thread is not None
+                               and self._solver_thread.is_alive())
+                self._cancel_solver()
                 self.replaying = False
+                self.replay = []
+                self.replay_idx = 0
+                if was_solving:
+                    self.result = None
+                self._active_algo = None
+                self.status = "Solver stopped" if was_solving else "Replay stopped"
+                self.status_color = TEXT
             return
         for b in solvers:
             if b.rect.collidepoint(pos):
