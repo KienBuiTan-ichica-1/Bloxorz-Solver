@@ -3,9 +3,9 @@
   "group": "D - Combined",
   "description": "Soft switch opens the bridge; the fragile tile must be crossed while lying",
   "map": [
-    "...............",
-    "#S##s##F#0#G#..",
-    "..............."
+    "..................",
+    "#S#####s###F###0G#",
+    ".................."
   ],
   "start": [1, 1],
   "bridges": ["closed"],
@@ -13,7 +13,7 @@
     {
       "kind": "soft",
       "mode": "toggle",
-      "cells": [[1, 4]],
+      "cells": [[1, 7]],
       "bridges": [0]
     }
   ]
