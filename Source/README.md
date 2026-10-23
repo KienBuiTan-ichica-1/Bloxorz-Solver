@@ -20,7 +20,7 @@ submission, troubleshooting): see **[BUILD_AND_RUN.md](BUILD_AND_RUN.md)**.
 
 ```bash
 python main.py                      # 3D GUI (default)
-python main.py --list               # list the 10 stages
+python main.py --list               # list the 15 stages
 python main.py --solve A* --stage 7 # solve stage 7 from the terminal
 python main.py --solve UCS --cost uniform -v   # print the move sequence
 python main.py --all                # every solver on every stage
@@ -92,7 +92,7 @@ Source/
 │   ├── engine.py           state representation + transition model + rules
 │   ├── search.py           BFS / DFS / IDS / UCS / A* + metrics
 │   └── __init__.py
-├── stages/                 10 stages in 4 difficulty groups
+├── stages/                 15 stages in 4 difficulty groups
 ├── tests/                  pytest suite (unit + all solvers on all stages)
 ├── screenshots/            README figures (generated with BLOXORZ_GL_SHOT)
 └── experiments/
@@ -125,7 +125,9 @@ effects, including split-switch teleportation.
 The geometry of a move is computed once, in `Engine.landing_state()` — the
 state produced *before* switch/teleport effects. Both `Engine.result()` and
 the `risk` cost model are built on it, so the cost function can never
-disagree with the transition model about which switches fire.
+disagree with the transition model about which switches fire.  Only cells
+newly entered by a move press switches: a stationary cube on a soft switch
+is not re-triggered when the other cube moves, and merging triggers nothing.
 
 **Cost functions** (`bloxorz/search.py`): `uniform` (every action costs 1) and
 `risk`, evaluated on the landing state:
@@ -141,11 +143,14 @@ UCS/A\* default to `risk` so UCS is not just a renamed BFS; every cost is
 ≥ 1, which is what keeps the heuristic admissible. BFS/DFS/IDS are
 move-optimal and always report the `uniform` model.
 
-**Heuristic:** pre-computed 4-connected shortest-path distance to the goal over
-the relaxed grid (bridges/fragile/switches ignored), then `h(s) = min over
-occupied cells of D(cell, goal)`. It is admissible (one action can decrease the
-minimum distance by at most 1) and consistent, and admissible w.r.t. both cost
-models because every action costs ≥ 1.
+**Heuristic:** pre-computed distance to the goal over the relaxed grid
+(bridges/fragile/switches ignored).  Grid moves cost 1; a split-switch
+teleport is a zero-cost edge from the switch cell to each target, so the
+distances are computed with a 0-1 BFS.  Then `h(s) = min over occupied cells
+of ceil(D(cell, goal) / 2)`.  One roll brings the closest occupied cell up to
+2 cells closer, and a teleport does not add a move of its own (D(source) is
+the minimum over its targets), so the heuristic stays admissible and
+consistent w.r.t. both cost models because every action costs ≥ 1.
 
 ## Stage format
 
@@ -166,19 +171,25 @@ models because every action costs ≥ 1.
 Map legend: `#` floor, `.`/space void, `G` goal, `F` fragile, `0-9` bridge,
 `s` soft switch, `x` heavy switch, `t` split switch, `S` start.
 
+The loader rejects unknown `set` values, out-of-range bridge indices, a start
+on fragile/closed-bridge cells, and split switches whose teleport targets are
+duplicated, out of bounds, void, fragile or on a default-closed bridge.
+
 ## Tests
 
 ```bash
 python -m pytest tests/ -q
 ```
 
-98 tests: unit tests for the orientation/transition table and advanced tiles,
+166 tests: unit tests for the orientation/transition table and advanced tiles,
 every solver replayed end-to-end on every stage (the replay must reach the
 goal), BFS-vs-IDS optimality, empirical admissibility/consistency of the
 heuristic (`tests/test_heuristic.py`), the cost models
 (`tests/test_cost_models.py`: switch-landing prices, every transition ≥ 1,
 UCS and A\* agree on the optimal risk cost, IDS stays bounded), and input
-validation for the stage loader.
+validation for the stage loader, plus regressions for teleport
+heuristics, stationary soft switches, permanent bridges, parser checks,
+timeouts and the two-run measurement mode.
 
 ## Experiments
 
@@ -190,5 +201,7 @@ python experiments/make_charts.py                # -> charts/*.png + summary.md
 ```
 
 Measures, for every (stage, algorithm): search time (median of `--runs`
-repeats, default 3), peak memory (`tracemalloc`), expanded nodes, solution
-length and path cost.
+repeats, default 3, with `tracemalloc` disabled), peak memory from a separate
+`tracemalloc` run, expanded nodes, solution length and path cost.  DFS/IDS
+runs use `--timeout` (default 10 s) and the CSV records `timed_out=True` when
+the limit is hit.  IDS reports its transposition-table size in `max_frontier`.
