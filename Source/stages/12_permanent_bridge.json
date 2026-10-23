@@ -1,0 +1,21 @@
+{
+  "name": "Level 12 - Permanent Bridge",
+  "group": "C - Switches",
+  "description": "A permanent heavy switch locks the bridge open; pressing it again cannot close it",
+  "map": [
+    "##########",
+    "#S##x#0G##",
+    "##########"
+  ],
+  "start": [1, 1],
+  "bridges": ["closed"],
+  "switches": [
+    {
+      "kind": "heavy",
+      "mode": "permanent",
+      "set": "open",
+      "cells": [[1, 4]],
+      "bridges": [0]
+    }
+  ]
+}
