@@ -35,18 +35,18 @@ def make(data: dict) -> Engine:
 
 HEAVY_STAGE = {
     "name": "heavy",
-    "map": ["######", "#S#xG#", "######"],
+    "map": ["#######", "#S##xG#", "#######"],
     "start": [1, 1],
     "bridges": ["closed"],
     "switches": [
         {"kind": "heavy", "mode": "permanent", "set": "open",
-         "cells": [[1, 3]], "bridges": [0]}
+         "cells": [[1, 4]], "bridges": [0]}
     ],
 }
 
 SOFT_STAGE = {
     "name": "soft",
-    "map": ["######", "#Ss0G#", "######"],
+    "map": ["#######", "#Ss#0G#", "#######"],
     "start": [1, 1],
     "bridges": ["closed"],
     "switches": [
@@ -64,9 +64,9 @@ def test_landing_on_heavy_switch_is_cheap():
     engine = make(HEAVY_STAGE)
     cost = make_cost_model(engine, "risk")
     state = engine.initial_state()
-    lying = engine.apply(state, "R")            # H at (1,1),(1,2)
-    standing = engine.apply(lying, "R")         # S on the heavy switch (1,3)
-    assert standing.orient == "S" and standing.pos == (1, 3)
+    lying = engine.apply(state, "R")            # H at (1,2),(1,3)
+    standing = engine.apply(lying, "R")         # S on the heavy switch (1,4)
+    assert standing.orient == "S" and standing.pos == (1, 4)
     assert engine.switches_triggered(standing) == [0]
     assert cost(lying, "R", standing) == 1.0
 
@@ -109,18 +109,18 @@ def test_plain_roll_costs_two_and_landing_on_fragile_costs_three():
 def test_control_switch_costs_one():
     data = {
         "name": "split",
-        "map": ["########", "#S###t##", "########", "#######G"],
+        "map": ["########", "#S##t###", "########", "#######G"],
         "start": [1, 1],
         "bridges": [],
         "switches": [
             {"kind": "split", "mode": "permanent", "set": "open",
-             "cells": [[1, 5]], "bridges": [], "teleport": [[1, 2], [1, 6]]}
+             "cells": [[1, 4]], "bridges": [], "teleport": [[1, 2], [1, 6]]}
         ],
     }
     engine = make(data)
     cost = make_cost_model(engine, "risk")
     state = engine.initial_state()
-    for action in "RRRR":
+    for action in "RR":
         state = engine.apply(state, action)
     assert state.mode == "split"
     flipped = engine.apply(state, "X")
@@ -175,7 +175,7 @@ def test_landing_state_is_consistent_with_result():
 
 
 def test_ids_does_not_blow_up_on_the_open_field():
-    stage = next(s for s in STAGES if "Open Field" in s.name)
+    stage = next(s for s in STAGES if "Big Open" in s.name)
     engine = Engine(stage)
     ids = solve(engine, "IDS")
     assert ids.found

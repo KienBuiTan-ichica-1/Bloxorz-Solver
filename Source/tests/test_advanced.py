@@ -5,7 +5,7 @@ from bloxorz.stage import parse_stage
 def test_soft_switch_toggles_bridge():
     data = {
         "name": "SW",
-        "map": ["######", "#Ss0G#", "######"],
+        "map": ["#######", "#Ss#0G#", "#######"],
         "start": [1, 1],
         "bridges": ["closed"],
         "switches": [
@@ -16,14 +16,14 @@ def test_soft_switch_toggles_bridge():
     eng = Engine(stage)
     s = eng.initial_state()
     assert not eng.bridge_open(s.bridges, 0)
-    s = eng.apply(s, "R")  # lying over (1,1),(1,2): presses soft switch
+    s = eng.apply(s, "R")  # lying over (1,2),(1,3): presses the soft switch
     assert eng.bridge_open(s.bridges, 0)
 
 
 def test_fragile_breaks_under_standing_block():
     data = {
         "name": "F",
-        "map": ["######", "#S#F##", "######", "####G#", "######"],
+        "map": ["######", "#S##F#", "######", "####G#", "######"],
         "start": [1, 1],
         "bridges": [],
         "switches": [],
@@ -31,11 +31,9 @@ def test_fragile_breaks_under_standing_block():
     stage = parse_stage(data)
     eng = Engine(stage)
     s = eng.initial_state()
-    # rolling right from (1,1) gives H covering (1,1),(1,2) - fine
+    # rolling right from (1,1) gives H covering (1,2),(1,3) - fine
     s = eng.apply(s, "R")
-    # from H at (1,1), rolling right stands on (1,3); (1,2) is fragile
-    # H at (1,1) covers (1,1),(1,2) where (1,2) is '#' and (1,3) is 'F'
-    # rolling right -> standing at (1,3) which is fragile -> illegal
+    # rolling right again stands the block on (1,4), which is fragile -> illegal
     assert not eng.legal(s, "R")
 
 
@@ -44,7 +42,7 @@ def test_split_switch_splits_block():
         "name": "SP",
         "map": [
             "########",
-            "#S###t##",
+            "#S##t###",
             "########",
             "#######G",
         ],
@@ -55,7 +53,7 @@ def test_split_switch_splits_block():
                 "kind": "split",
                 "mode": "permanent",
                 "set": "open",
-                "cells": [[1, 5]],
+                "cells": [[1, 4]],
                 "bridges": [],
                 "teleport": [[1, 2], [1, 6]],
             }
@@ -64,8 +62,8 @@ def test_split_switch_splits_block():
     stage = parse_stage(data)
     eng = Engine(stage)
     s = eng.initial_state()
-    # stand on the split switch at (1,5): go R (H at 1,1), R (stand 1,3), R (H at 1,3), R (stand 1,5)
-    for a in ["R", "R", "R", "R"]:
-        s = eng.apply(s, a)
+    # stand on the split switch at (1,4): R -> H (1,2),(1,3); R -> S (1,4)
+    for action in ["R", "R"]:
+        s = eng.apply(s, action)
     assert s.mode == "split"
     assert s.pos == ((1, 2), (1, 6))
