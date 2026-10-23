@@ -75,13 +75,13 @@ def roll(orient: str, pos: Cell, action: str) -> tuple[str, Cell]:
     r, c = pos
     if orient == "S":
         if action == "U":
-            return "V", (r - 1, c)
+            return "V", (r - 2, c)
         if action == "D":
-            return "V", (r, c)
+            return "V", (r + 1, c)
         if action == "L":
-            return "H", (r, c - 1)
+            return "H", (r, c - 2)
         if action == "R":
-            return "H", (r, c)
+            return "H", (r, c + 1)
     elif orient == "H":
         if action == "L":
             return "S", (r, c - 1)
@@ -224,9 +224,39 @@ class Engine:
                              state.bridges)
         return None
 
-    def switches_triggered(self, state: GameState) -> list[int]:
-        """Indices of the switches pressed by ``state`` (a *landing* state)."""
-        return self._switches_triggered(state, state.occupied())
+    def switches_triggered(self, state: GameState, cells=None) -> list[int]:
+        """Indices of the switches pressed by ``state`` (a *landing* state).
+
+        ``cells`` defaults to every occupied cell.  Callers that know which
+        cells were newly entered (see :meth:`trigger_cells`) should pass them
+        so a stationary cube on a soft switch does not fire it again.
+        """
+        if cells is None:
+            cells = state.occupied()
+        return self._switches_triggered(state, cells)
+
+    def trigger_cells(self, state: GameState, action: str) -> tuple[Cell, ...]:
+        """Cells newly occupied by ``action`` that can press a switch.
+
+        A block roll enters every cell of its landing position; a split roll
+        enters only the active cube's new cell; merging moves no cube, so it
+        triggers nothing.  Landing a standing block on a split switch also
+        places the two cubes on the teleport targets, so those cells are
+        included for the risk cost model.
+        """
+        land = self.landing_state(state, action)
+        if land is None or action == MERGE:
+            return ()
+        if state.mode == "split":
+            return (land.pos[state.active],)
+        cells = land.block_cells()
+        if land.orient == "S":
+            sw_idx = self.switch_at.get(land.pos)
+            if sw_idx is not None:
+                sw = self.switches[sw_idx]
+                if sw.kind == "split" and sw.teleport is not None:
+                    cells += sw.teleport
+        return cells
 
     def _roll_block(self, state: GameState, action: str) -> GameState | None:
         land = self.landing_state(state, action)
@@ -237,7 +267,8 @@ class Engine:
             return None
         if land.orient == "S" and cells[0] in self.fragile:
             return None  # fragile tile breaks under the standing block
-        return self._post_move("block", land.orient, land.pos, 0, state.bridges)
+        return self._post_move("block", land.orient, land.pos, 0, state.bridges,
+                               trigger_cells=cells)
 
     # ------------------------------------------------------------------ split
     def _roll_cube(self, state: GameState, action: str) -> GameState | None:
@@ -253,7 +284,8 @@ class Engine:
             return None
         if new_cell in self.fragile:
             return None  # a unit cube is "standing" weight
-        return self._post_move("split", "", land.pos, state.active, state.bridges)
+        return self._post_move("split", "", land.pos, state.active, state.bridges,
+                               trigger_cells=(new_cell,))
 
     def _merge(self, state: GameState) -> GameState | None:
         land = self.landing_state(state, MERGE)
@@ -261,14 +293,15 @@ class Engine:
             return None
         if not self.supported(state, land.block_cells()):
             return None
-        return self._post_move("block", land.orient, land.pos, 0, state.bridges)
+        return self._post_move("block", land.orient, land.pos, 0, state.bridges,
+                               trigger_cells=())
 
     # ---------------------------------------------------------- switch / goal
     def _post_move(self, mode: str, orient: str, pos, active: int,
-                   bridges: tuple) -> GameState | None:
+                   bridges: tuple, trigger_cells) -> GameState | None:
         state = GameState(mode, orient, pos, active, bridges)
         cells = state.occupied()
-        activated = self._switches_triggered(state, cells)
+        activated = self._switches_triggered(state, trigger_cells)
         bridges, split_switch = self._apply_switches(state.bridges, activated)
         after = GameState(mode, orient, pos, active, bridges)
         if not self.supported(after, cells):
@@ -279,9 +312,15 @@ class Engine:
             cubes = (tp[0], tp[1])
             if cubes[0] == cubes[1]:
                 return None
-            if not self.supported(after, cubes):
+            split_state = GameState("split", "", cubes, 0, bridges)
+            # the teleport places the cubes on the targets: soft switches there
+            # are pressed by the newly occupied cells.
+            tp_activated = self._switches_triggered(split_state, cubes)
+            tp_bridges, _ = self._apply_switches(bridges, tp_activated)
+            split_state = GameState("split", "", cubes, 0, tp_bridges)
+            if not self.supported(split_state, cubes):
                 return None
-            return GameState("split", "", cubes, 0, bridges)
+            return split_state
         return after
 
     def _switches_triggered(self, state: GameState, cells) -> list[int]:
