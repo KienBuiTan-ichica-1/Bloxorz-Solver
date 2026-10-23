@@ -14,11 +14,11 @@ Bloxorz là trò chơi xếp hình: điều khiển khối hộp **1 × 1 × 2**
   - **Cầu (bridge)** đóng/mở, điều khiển bởi công tắc.
   - Ba loại công tắc: **soft** (kích hoạt mọi hướng), **heavy** (chỉ khi khối đứng), **split** (tách khối thành hai khối 1×1×1, điều khiển luân phiên và ghép lại).
   - Hai kiểu tác động cầu: **toggle** và **permanent**.
-- **GUI 3D (PyOpenGL)**: bàn cờ, khối hộp và hai khối đơn vị được render 3D thật với ánh sáng, bóng đổ và animation lăn; camera xoay/zoom tự do. Chơi thủ công, chọn stage, undo, restart, chạy solver và **phát lại lời giải** kèm thanh tiến độ.
+- **GUI 3D (PyOpenGL)**: bàn cờ, khối hộp và hai khối đơn vị được render 3D thật với ánh sáng, bóng đổ và animation lăn; camera xoay/zoom tự do. Chơi thủ công, chọn stage, undo, restart, chạy solver trong **thread riêng** (nút Stop hủy được) và **phát lại lời giải** kèm thanh tiến độ.
 - **5 solver** tự cài đặt, không dùng thư viện tìm kiếm: BFS, DFS, IDS, UCS, A\*.
 - **Đo hiệu năng**: thời gian tìm kiếm, bộ nhớ đỉnh, số node mở rộng, độ dài lời giải, chi phí đường đi, frontier lớn nhất.
 - **CLI** chạy solver không cần GUI + **bộ thực nghiệm** sinh CSV và biểu đồ cho báo cáo.
-- **98 unit test** (pytest) cho luật chơi, tile nâng cao, tính tối ưu và tính admissible/consistent của heuristic.
+- **166 unit test** (pytest) cho luật chơi, tile nâng cao, tính tối ưu và tính admissible/consistent của heuristic.
 
 ---
 
@@ -55,7 +55,7 @@ Project1/
     │   ├── stage.py          ← đọc & validate stage (JSON/ASCII)
     │   ├── engine.py         ← trạng thái, transition model, luật chơi
     │   └── search.py         ← BFS / DFS / IDS / UCS / A* + metrics
-    ├── stages/               ← 10 stage chia 4 nhóm độ khó
+    ├── stages/               ← 15 stage chia 4 nhóm độ khó
     ├── tests/                ← pytest suite
     ├── screenshots/          ← ảnh chụp giao diện 3D cho README
     └── experiments/
@@ -104,7 +104,7 @@ python main.py
 ### Dòng lệnh
 
 ```bash
-python main.py --list                       # danh sách 10 stage
+python main.py --list                       # danh sách 15 stage
 python main.py --solve BFS                  # giải stage 1
 python main.py --solve "A*" --stage 7 -v    # in chuỗi nước đi
 python main.py --solve UCS --cost uniform   # chọn cost model
@@ -125,7 +125,7 @@ python main.py --all                        # mọi solver × mọi stage
 | `active` | khối đang được điều khiển (split) |
 | `bridges` | trạng thái **mọi** cây cầu (đóng / mở / khóa) |
 
-**Hành động**: `U D L R` (lăn), `X` (đổi khối), `M` (ghép). Nước đi không hợp lệ trả về `None` (ra ngoài bàn, rơi hố, cầu đóng, đứng trên ô fragile). Cấu hình cầu là một phần của trạng thái nên hai vị trí giống nhau nhưng cầu khác nhau là hai trạng thái khác nhau — đúng yêu cầu đề bài.
+**Hành động**: `U D L R` (lăn), `X` (đổi khối), `M` (ghép). Nước đi không hợp lệ trả về `None` (ra ngoài bàn, rơi hố, cầu đóng, đứng trên ô fragile). Cấu hình cầu là một phần của trạng thái nên hai vị trí giống nhau nhưng cầu khác nhau là hai trạng thái khác nhau — đúng yêu cầu đề bài. Chỉ các ô **mới được đi vào** mới kích hoạt công tắc: khối đứng yên trên soft switch không bị kích hoạt lại khi khối còn lại di chuyển, và thao tác ghép `M` không kích hoạt công tắc.
 
 **Cost model** (`bloxorz/search.py`):
 
@@ -140,7 +140,7 @@ python main.py --all                        # mọi solver × mọi stage
 - `UCS / A*` mặc định dùng cost `risk` để UCS không chỉ là BFS đổi tên.
 - Mọi chi phí đều **≥ 1** — điều kiện giữ cho heuristic admissible với cả hai cost model.
 
-**Heuristic**: khoảng cách đường đi ngắn nhất 4-liên thông tới đích trên lưới "nới lỏng" (bỏ qua cầu/fragile/công tắc), lấy `min` trên các ô khối đang chiếm. Admissible và consistent; A\* mở rộng ít node hơn BFS/UCS trên hầu hết stage.
+**Heuristic**: khoảng cách tới đích trên lưới "nới lỏng" (bỏ qua cầu/fragile/công tắc). Cạnh đi trên lưới có chi phí 1; teleport của split switch là cạnh **chi phí 0** từ ô công tắc tới từng đích teleport, nên khoảng cách được tính bằng **0-1 BFS** (duyệt ngược từ đích). Sau đó lấy `min` trên các ô khối đang chiếm rồi chia 2 (làm tròn lên): `h(s) = min_c ceil(D(c, goal) / 2)`. Vì một nước lăn có thể đưa ô gần đích nhất tới 2 ô, và teleport không tạo thêm nước đi (D(nguồn) = min D(đích)), `h` vẫn admissible và consistent với mọi cost ≥ 1; A\* mở rộng ít node hơn BFS/UCS trên hầu hết stage.
 
 ---
 
@@ -161,16 +161,18 @@ python main.py --all                        # mọi solver × mọi stage
 
 Ký hiệu: `#` sàn, `.`/space hố, `G` đích, `F` fragile, `0-9` cầu, `s` soft switch, `x` heavy switch, `t` split switch, `S` điểm bắt đầu.
 
+Loader kiểm tra `set` chỉ nhận `open|closed`, bridge index phải tồn tại, start không được nằm trên fragile/cầu đóng, và teleport của split switch không được trùng nhau hoặc trỏ vào ô void/fragile/cầu đóng mặc định.
+
 ---
 
 ## Kiểm thử
 
 ```bash
 cd Source
-python -m pytest tests/ -q          # kỳ vọng: 98 passed
+python -m pytest tests/ -q          # kỳ vọng: 166 passed
 ```
 
-Bộ test bao phủ: bảng chuyển hướng, tile nâng cao, replay mọi solver trên mọi stage, tối ưu BFS vs IDS, admissible/consistency của heuristic, cost model, và validate stage.
+Bộ test bao phủ: bảng chuyển hướng, tile nâng cao, replay mọi solver trên mọi stage, tối ưu BFS vs IDS, admissible/consistency của heuristic (kể cả teleport), cost model, validate stage, soft switch không kích hoạt lại, permanent bridge, timeout/hủy DFS-IDS và chế độ đo hai lượt.
 
 ---
 
@@ -180,25 +182,28 @@ Bộ test bao phủ: bảng chuyển hướng, tile nâng cao, replay mọi solv
 cd Source
 python experiments/run_experiments.py          # -> experiments/results.csv
 python experiments/run_experiments.py --runs 5 # lấy trung vị thời gian
+python experiments/run_experiments.py --timeout 5  # giới hạn DFS/IDS (giây)
 python experiments/make_charts.py              # -> charts/*.png + summary.md
 ```
 
-### Kết quả trung bình trên 10 stage
+Mỗi combo chạy hai lượt: lượt đo thời gian **không bật** `tracemalloc`, lượt đo bộ nhớ bật `tracemalloc`. Nếu DFS/IDS vượt `--timeout` (mặc định 10 s), CSV ghi `timed_out=True`. Với IDS, `max_frontier` là kích thước bảng transposition (số trạng thái đã gặp), không phải frontier BFS thực sự.
+
+### Kết quả trung bình trên 15 stage
 
 | Thuật toán | Độ dài TB | Node mở rộng TB | Thời gian TB (ms) | Bộ nhớ TB (KiB) |
 |---|---:|---:|---:|---:|
-| BFS | 9.0 | 61.4 | 3.64 | 15.5 |
-| DFS | 21.5 | 52.9 | 3.41 | 17.8 |
-| IDS | 9.0 | 505.3 | 33.09 | 13.4 |
-| UCS | 9.0 | 61.1 | 5.60 | 19.0 |
-| A\* | 9.0 | 44.2 | 4.26 | 19.3 |
+| BFS | 10.3 | 106.1 | 1.81 | 20.9 |
+| DFS | 38.1 | 73.3 | 1.26 | 24.4 |
+| IDS | 10.3 | 1408.6 | 22.99 | 21.4 |
+| UCS | 10.3 | 105.7 | 3.08 | 30.1 |
+| A\* | 10.3 | 80.0 | 2.73 | 30.4 |
 
 **Nhận xét nhanh**
 
 - **A\*** mở rộng ít node nhất trong các thuật toán tối ưu, nhờ heuristic admissible.
-- **BFS** tối ưu số nước đi nhưng tốn bộ nhớ frontier; **DFS** có thể cho lời giải rất dài (ví dụ 83 nước ở Level 9).
-- **IDS** tối ưu như BFS nhưng mở rộng nhiều node hơn do lặp lại theo độ sâu.
-- **UCS** với cost `risk` tìm lời giải tối ưu theo chi phí, không nhất thiết ngắn nhất theo số nước.
+- **BFS** tối ưu số nước đi nhưng tốn bộ nhớ frontier; **DFS** có thể cho lời giải rất dài (105 nước ở Level 9, 198 nước ở Level 13).
+- **IDS** tối ưu như BFS nhưng mở rộng nhiều node hơn do lặp lại theo độ sâu; trên maze 15×15 IDS mở rộng ~14.6k node.
+- **UCS** với cost `risk` tìm lời giải tối ưu theo chi phí, không nhất thiết ngắn nhất theo số nước. Level 11 chứng minh điều này: BFS đi 9 nước nhưng phải băng qua fragile (risk 21), UCS đi 10 nước đường an toàn (risk 20).
 
 Chi tiết từng stage và biểu đồ: [`Source/experiments/charts/summary.md`](Source/experiments/charts/summary.md).
 
