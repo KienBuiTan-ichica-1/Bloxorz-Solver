@@ -160,7 +160,7 @@ def test_landing_state_is_consistent_with_result():
     for stage in STAGES:
         engine = Engine(stage)
         for state in reachable(engine, max_depth=6):
-            for action in ("U", "D", "L", "R", "X", "M"):
+            for action in ("U", "D", "L", "R", "X"):
                 result = engine.result(state, action)
                 landing = engine.landing_state(state, action)
                 if action == "X":

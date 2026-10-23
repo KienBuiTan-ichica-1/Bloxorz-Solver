@@ -67,3 +67,74 @@ def test_split_switch_splits_block():
         s = eng.apply(s, action)
     assert s.mode == "split"
     assert s.pos == ((1, 2), (1, 6))
+
+
+def test_cubes_auto_merge_after_roll():
+    data = {
+        "name": "auto merge",
+        "map": [
+            "##########",
+            "#S##t#####",
+            "##########",
+            "#######G##",
+        ],
+        "start": [1, 1],
+        "bridges": [],
+        "switches": [
+            {
+                "kind": "split",
+                "mode": "permanent",
+                "set": "open",
+                "cells": [[1, 4]],
+                "bridges": [],
+                "teleport": [[1, 6], [2, 5]],
+            }
+        ],
+    }
+    stage = parse_stage(data)
+    eng = Engine(stage)
+    s = eng.initial_state()
+    for action in ["R", "R"]:
+        s = eng.apply(s, action)
+    assert s.mode == "split"
+    assert s.pos == ((1, 6), (2, 5))
+
+    s = eng.apply(s, "X")                 # control the cube at (2, 5)
+    s = eng.apply(s, "R")                 # move it next to the cube at (1, 6)
+    assert s.mode == "block"
+    assert s.orient == "V"
+    assert s.pos == (1, 6)
+    assert s.occupied() == ((1, 6), (2, 6))
+
+
+def test_adjacent_teleport_targets_merge_immediately():
+    data = {
+        "name": "adjacent teleport",
+        "map": [
+            "##########",
+            "#S##t#####",
+            "##########",
+            "#######G##",
+        ],
+        "start": [1, 1],
+        "bridges": [],
+        "switches": [
+            {
+                "kind": "split",
+                "mode": "permanent",
+                "set": "open",
+                "cells": [[1, 4]],
+                "bridges": [],
+                "teleport": [[1, 5], [1, 6]],
+            }
+        ],
+    }
+    stage = parse_stage(data)
+    eng = Engine(stage)
+    s = eng.initial_state()
+    for action in ["R", "R"]:
+        s = eng.apply(s, action)
+    assert s.mode == "block"
+    assert s.orient == "H"
+    assert s.pos == (1, 5)
+    assert eng.result(s, "M") is None

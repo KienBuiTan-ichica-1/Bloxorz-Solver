@@ -93,7 +93,7 @@ python -m pip install ruff
 ```powershell
 python -c "import pygame, OpenGL, matplotlib, pytest; print('pygame', pygame.version.ver, '| OpenGL', OpenGL.__version__)"
 python main.py --list          # liệt kê 15 stage
-python -m pytest tests/ -q     # kỳ vọng: 166 passed
+python -m pytest tests/ -q     # kỳ vọng: 168 passed
 ```
 
 Nếu cả ba lệnh trên chạy được thì môi trường đã sẵn sàng.
@@ -116,7 +116,6 @@ Bảng điều khiển:
 |---|---|
 | Mũi tên / `W A S D` | lăn khối |
 | `X` | đổi khối đang điều khiển (chế độ split) |
-| `M` | ghép hai khối phụ thành khối 1×1×2 |
 | `R` | chơi lại stage hiện tại |
 | `Esc` | thoát |
 | Kéo chuột trái/phải | xoay camera 3D quanh bàn cờ |
@@ -131,6 +130,9 @@ Bảng điều khiển:
 | `Undo` | hoàn nước đi cuối |
 | `Stop` | hủy solver đang chạy trong thread nền hoặc dừng phát lại lời giải |
 | `BFS` `DFS` `IDS` `UCS` `A*` | chạy solver và phát lại lời giải (có thanh tiến độ) |
+
+Hai khối đơn vị **tự động ghép** lại thành khối 1×1×2 khi chúng nằm trên hai ô
+kề nhau sau một nước lăn; không cần phím ghép riêng.
 
 Bàn cờ, khối 1×1×2 và hai khối đơn vị ở chế độ split được render **3D thật**
 bằng PyOpenGL (ánh sáng, bóng đổ, animation lăn). Panel bên phải hiển thị trạng
@@ -169,7 +171,7 @@ python -m pytest tests/ -q
 python -m pytest tests/test_cost_models.py -v    # chỉ phần cost model
 ```
 
-166 test phủ: bảng chuyển hướng, các tile nâng cấp (fragile/bridge/3 loại switch),
+168 test phủ: bảng chuyển hướng, các tile nâng cấp (fragile/bridge/3 loại switch), auto-merge,
 mọi solver replay tới goal trên mọi stage, tính tối ưu BFS vs IDS, tính
 admissible/consistency của heuristic (kể cả teleport), mọi chi phí ≥ 1, UCS và
 A\* đồng thuận trên cùng tổng chi phí, validate định dạng stage, soft switch
@@ -263,7 +265,7 @@ rm -rf StudentID1_StudentID2
 
 ### 4.3. Checklist trước khi nộp
 
-- [ ] `python -m pytest tests/ -q` → 166 passed
+- [ ] `python -m pytest tests/ -q` → 168 passed
 - [ ] `python main.py --list` chạy được từ **bản zip mới giải nén**
 - [ ] `python main.py` mở được GUI và chạy solver
 - [ ] Chạy được experiments trên bản zip mới:

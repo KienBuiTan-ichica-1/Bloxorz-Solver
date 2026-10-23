@@ -32,7 +32,6 @@ python main.py --all                # every solver on every stage
 |---|---|
 | Arrow keys / WASD | Roll the block |
 | `X` | Switch the controlled cube (split mode) |
-| `M` | Merge two adjacent cubes |
 | `R` | Restart the stage |
 | `Esc` | Quit |
 | Left / right drag | Orbit the 3D camera |
@@ -117,9 +116,10 @@ search key):
 Because bridge configuration is part of the state, two positions with different
 bridge layouts are different states — required by the brief.
 
-**Actions:** `U D L R` rolls, `X` switches the active cube, `M` merges two
-adjacent cubes. `Engine.result()` returns `None` for illegal moves (void,
-out of bounds, closed bridge, standing on a fragile tile) and applies switch
+**Actions:** `U D L R` rolls, `X` switches the active cube. The two cubes merge
+automatically as soon as they occupy adjacent tiles. `Engine.result()` returns
+`None` for illegal moves (void, out of bounds, closed bridge, standing on a
+fragile tile) and applies switch
 effects, including split-switch teleportation.
 
 The geometry of a move is computed once, in `Engine.landing_state()` — the
@@ -127,7 +127,8 @@ state produced *before* switch/teleport effects. Both `Engine.result()` and
 the `risk` cost model are built on it, so the cost function can never
 disagree with the transition model about which switches fire.  Only cells
 newly entered by a move press switches: a stationary cube on a soft switch
-is not re-triggered when the other cube moves, and merging triggers nothing.
+is not re-triggered when the other cube moves. The automatic merge moves no
+cube, so it does not press any switch either.
 
 **Cost functions** (`bloxorz/search.py`): `uniform` (every action costs 1) and
 `risk`, evaluated on the landing state:
@@ -136,7 +137,7 @@ is not re-triggered when the other cube moves, and merging triggers nothing.
 |---|---|
 | `X` (switch control, nothing moves) | 1 |
 | any action that presses at least one switch | 1 |
-| any other action (roll or merge) | 2 |
+| any other action (roll) | 2 |
 | landing on a fragile tile | +1 |
 
 UCS/A\* default to `risk` so UCS is not just a renamed BFS; every cost is
@@ -181,8 +182,9 @@ duplicated, out of bounds, void, fragile or on a default-closed bridge.
 python -m pytest tests/ -q
 ```
 
-166 tests: unit tests for the orientation/transition table and advanced tiles,
-every solver replayed end-to-end on every stage (the replay must reach the
+168 tests: unit tests for the orientation/transition table, advanced tiles and
+automatic cube merging, every solver replayed end-to-end on every stage (the
+replay must reach the
 goal), BFS-vs-IDS optimality, empirical admissibility/consistency of the
 heuristic (`tests/test_heuristic.py`), the cost models
 (`tests/test_cost_models.py`: switch-landing prices, every transition ≥ 1,

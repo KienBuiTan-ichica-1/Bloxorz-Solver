@@ -3,8 +3,8 @@
 ## 1. Tổng quan nhanh
 - **Repository**: D:\csttnt\Project1
 - **Source code**: D:\csttnt\Project1\Source (Python, pygame + PyOpenGL, pytest)
-- **Tests**: **166 passed** (chạy `python -m pytest tests/ -q`)
-- **GUI**: Có 3D GUI bằng PyOpenGL (`gui_gl.py`, 1127 dòng) + CLI
+- **Tests**: **168 passed** (chạy `python -m pytest tests/ -q`)
+- **GUI**: Có 3D GUI bằng PyOpenGL (`gui_gl.py`, 1178 dòng) + CLI
 - **Solvers**: BFS, DFS, IDS, UCS, A* (tự cài đặt, không dùng thư viện search)
 - **Stages**: 15 stage, chia 4 nhóm (A-D), gồm stage lớn 15×15 và stage kết hợp nhiều loại tile
 - **Experiments**: Có `experiments/run_experiments.py`, `make_charts.py`, `results.csv`, `charts/` đầy đủ
@@ -16,7 +16,7 @@
 |---|---|---|
 | **MUST HAVE a GUI** (web/desktop) | ✅ ĐẠT | `gui_gl.py` - 3D OpenGL GUI bằng pygame+PyOpenGL. `main.py` mặc định chạy GUI. |
 | **Core mechanics (10 pts)**: board floor/void/goal, block 1×1×2 3 orientations, 4 rolling moves, illegal move detection, win detection (standing on goal) | ✅ ĐẠT | `bloxorz/engine.py`, `bloxorz/stage.py`. Roll transition table đúng chuẩn. Win chỉ khi `mode==block, orient==S, pos==goal`. |
-| **Advanced tiles (10 pts)**: fragile tiles, bridges, 3 switch types (soft, heavy, split), block splitting/rejoining, toggle/permanent bridge behavior | ✅ ĐẠT | Đầy đủ trong engine + tests. Split switch teleport + merge `M`. Bridge state là part của `GameState`. Soft switch chỉ kích hoạt ô mới đi vào; permanent bridge có stage riêng (Level 12). Parser validate bridge index, start và teleport target. |
+| **Advanced tiles (10 pts)**: fragile tiles, bridges, 3 switch types (soft, heavy, split), block splitting/rejoining, toggle/permanent bridge behavior | ✅ ĐẠT | Đầy đủ trong engine + tests. Split switch teleport + **tự động merge khi hai cube kề nhau**. Bridge state là part của `GameState`. Soft switch chỉ kích hoạt ô mới đi vào; permanent bridge có stage riêng (Level 12). Parser validate bridge index, start và teleport target. |
 | **Display basic controls** (New Game, Restart, buttons for solvers) | ✅ ĐẠT | GUI có buttons: New Game, Restart, < >, Undo, Stop, BFS/DFS/IDS/UCS/A*. Có keyboard controls đầy đủ. |
 
 ### 2.2 BFS Solver (10 pts)
@@ -35,7 +35,7 @@
 | Yêu cầu | Trạng thái | Ghi chú |
 |---|---|---|
 | Implement UCS | ✅ ĐẠT | `solve_ucs()` |
-| Define and justify cost function in report | ⚠️ CẦN VIẾT VÀO REPORT | Cost model `risk` đã implement tốt: switch press cheap (1), normal roll/merge 2, fragile landing +1, X costs 1. Có tests chứng minh. Cần giải thích rõ rationale trong báo cáo. |
+| Define and justify cost function in report | ⚠️ CẦN VIẾT VÀO REPORT | Cost model `risk` đã implement tốt: switch press cheap (1), normal roll 2, fragile landing +1, X costs 1. Có tests chứng minh. Cần giải thích rõ rationale trong báo cáo. |
 | Non-uniform cost function (not just rename of BFS) | ✅ ĐẠT | Risk cost khác hẳn uniform; UCS/A* dùng risk mặc định. Tests chứng minh UCS/A* agree on optimal risk cost. |
 
 ### 2.5 A* Solver (10 pts)
@@ -63,7 +63,7 @@
 ### 3.1 Core (engine/stage/search) - EXCELLENT
 - **State representation**: `GameState` frozen dataclass, hashable, đầy đủ (mode/orient/pos/active/bridges). Bridges trong state đúng yêu cầu.
 - **Transition model**: `roll()` table đúng, `landing_state()` tách biệt rõ ràng, `result()` xử lý đầy đủ luật chơi.
-- **Switches**: soft/heavy/split đúng điều kiện kích hoạt. Split teleport + merge. Toggle/permanent đúng.
+- **Switches**: soft/heavy/split đúng điều kiện kích hoạt. Split teleport + tự động merge. Toggle/permanent đúng.
 - **Bridges**: đóng/mở/khóa (locked) với bits. Bridge closing có thể gây block fall - đã xử lý.
 - **Cost model**: `risk` rất tốt, dùng landing state nhất quán với engine. Tests chứng minh không có inconsistency.
 - **Heuristic**: admissible/consistent, precompute từ goal ngược. Hoạt động tốt với split states.
@@ -79,7 +79,7 @@
 - Undo, restart, stage switching, stop/cancel solver và replay
 - Screenshot support cho README
 
-**Issues tìm thấy (đã sửa các mục 3-6):**
+**Issues tìm thấy (các mục gạch ngang đã sửa):**
 1. ~~**Solver chạy sync** → GUI freeze khi tìm kiếm~~ - đã sửa: solver chạy trong thread nền, GUI poll kết quả, nút Stop hủy solver qua `should_stop`.
 2. **`"New Game"` label misleading** - thực chất là quay về stage 1, không tạo game mới (line 905-907)
 3. ~~**`Stop` không reset `active_algo` highlight**~~ - đã sửa: Stop reset highlight và status.
@@ -87,11 +87,12 @@
 5. ~~**Texture cache key thiếu font identity**~~ - đã sửa: key có `id(font)`.
 6. ~~**Một vài dead code** (STATUS_COLORS, _c255)~~ - đã xóa.
 7. ~~**Void tiles không có legend entry**~~ - đã thêm "Void" vào legend.
+8. ~~**Merge thủ công bằng phím `M`**~~ - đã sửa: hai cube tự động ghép khi nằm trên hai ô kề nhau; bỏ action `M` và phím GUI tương ứng.
 
 Nhìn chung GUI **đạt yêu cầu**: "The GUI must also display the basic controls..." và hiển thị metrics, replay solution. Rất tốt hơn yêu cầu tối thiểu.
 
 ### 3.3 Tests - EXCELLENT
-166 tests bao phủ: engine basics, advanced tiles, all solvers on all 15 stages (replay validity), BFS optimality vs IDS, heuristic admissible/consistent kể cả teleport, cost models, every transition >=1 cost, UCS==A* on risk cost, UCS chọn đường dài hơn nhưng risk thấp hơn BFS, soft switch không kích hoạt lại, permanent bridge, parser validation, timeout/hủy DFS-IDS, measurement hai lượt, IDS bounded on open field, error handling. Coverage rất tốt.
+168 tests bao phủ: engine basics, advanced tiles, all solvers on all 15 stages (replay validity), BFS optimality vs IDS, heuristic admissible/consistent kể cả teleport, cost models, every transition >=1 cost, UCS==A* on risk cost, UCS chọn đường dài hơn nhưng risk thấp hơn BFS, soft switch không kích hoạt lại, permanent bridge, parser validation, timeout/hủy DFS-IDS, measurement hai lượt, IDS bounded on open field, error handling. Coverage rất tốt.
 
 ### 3.4 Experiments - EXCELLENT
 Có đầy đủ dữ liệu 15 stage, charts, summary. Thời gian đo ở lượt không bật `tracemalloc`; bộ nhớ đo ở lượt riêng. DFS/IDS có `--timeout`, CSV có cột `timed_out`. Averages khớp với README.

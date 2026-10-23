@@ -26,7 +26,7 @@ from bloxorz.stage import load_stages
 
 STAGE_DIR = Path(__file__).resolve().parent / "stages"
 ACTION_LABELS = {"U": "Up", "D": "Down", "L": "Left", "R": "Right",
-                 "X": "Switch cube", "M": "Merge"}
+                 "X": "Switch cube"}
 
 
 def fmt_result(res, name: str) -> str:

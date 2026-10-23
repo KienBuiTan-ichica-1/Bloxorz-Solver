@@ -17,7 +17,7 @@
       "set": "open",
       "cells": [[1, 4]],
       "bridges": [],
-      "teleport": [[1, 12], [2, 12]]
+      "teleport": [[1, 12], [2, 11]]
     }
   ]
 }

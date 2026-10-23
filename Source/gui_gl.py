@@ -14,7 +14,6 @@ Controls
 --------
 * Arrow keys / ``W A S D`` - roll the block
 * ``X``                    - switch control between the two cubes (split mode)
-* ``M``                    - merge two adjacent cubes
 * ``R``                    - restart the stage
 * Left / right drag        - orbit the camera
 * Mouse wheel              - zoom
@@ -48,7 +47,7 @@ try:
 except ImportError:  # pragma: no cover - exercised only without PyOpenGL
     GL = GLU = None
 
-from bloxorz.engine import ACTION_NAMES, MERGE, SWITCH_CONTROL, Engine, IllegalMove
+from bloxorz.engine import ACTION_NAMES, SWITCH_CONTROL, Engine, IllegalMove
 from bloxorz.search import solve
 from bloxorz.stage import load_stages
 
@@ -963,7 +962,7 @@ class GUI:
         panel_x = WIN_W - PANEL_W - MARGIN // 2
         status_w = panel_x - (MARGIN + 220) - 8
         status = self._ellipsize(self.status, self.font_small, status_w)
-        controls = "Arrows: roll   X: switch   M: merge   R: restart"
+        controls = "Arrows: roll   X: switch   R: restart"
         controls_w = self.font_small.size(controls)[0]
         controls_x = panel_x - MARGIN - controls_w
         desc_w = controls_x - MARGIN - 16
@@ -1081,8 +1080,6 @@ class GUI:
             self.move("R")
         elif key == pygame.K_x:
             self.move(SWITCH_CONTROL)
-        elif key == pygame.K_m:
-            self.move(MERGE)
         elif key == pygame.K_r:
             self.restart()
         elif key == pygame.K_t:

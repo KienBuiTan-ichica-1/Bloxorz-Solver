@@ -12,13 +12,13 @@ Bloxorz là trò chơi xếp hình: điều khiển khối hộp **1 × 1 × 2**
 - **Tile nâng cao**:
   - Ô **fragile** — chỉ chịu được khối khi nằm (không chịu được khi đứng).
   - **Cầu (bridge)** đóng/mở, điều khiển bởi công tắc.
-  - Ba loại công tắc: **soft** (kích hoạt mọi hướng), **heavy** (chỉ khi khối đứng), **split** (tách khối thành hai khối 1×1×1, điều khiển luân phiên và ghép lại).
+  - Ba loại công tắc: **soft** (kích hoạt mọi hướng), **heavy** (chỉ khi khối đứng), **split** (tách khối thành hai khối 1×1×1, điều khiển luân phiên và tự động ghép lại khi kề nhau).
   - Hai kiểu tác động cầu: **toggle** và **permanent**.
 - **GUI 3D (PyOpenGL)**: bàn cờ, khối hộp và hai khối đơn vị được render 3D thật với ánh sáng, bóng đổ và animation lăn; camera xoay/zoom tự do. Chơi thủ công, chọn stage, undo, restart, chạy solver trong **thread riêng** (nút Stop hủy được) và **phát lại lời giải** kèm thanh tiến độ.
 - **5 solver** tự cài đặt, không dùng thư viện tìm kiếm: BFS, DFS, IDS, UCS, A\*.
 - **Đo hiệu năng**: thời gian tìm kiếm, bộ nhớ đỉnh, số node mở rộng, độ dài lời giải, chi phí đường đi, frontier lớn nhất.
 - **CLI** chạy solver không cần GUI + **bộ thực nghiệm** sinh CSV và biểu đồ cho báo cáo.
-- **166 unit test** (pytest) cho luật chơi, tile nâng cao, tính tối ưu và tính admissible/consistent của heuristic.
+- **168 unit test** (pytest) cho luật chơi, tile nâng cao, tính tối ưu và tính admissible/consistent của heuristic.
 
 ---
 
@@ -90,7 +90,6 @@ python main.py
 |---|---|
 | Mũi tên / `W A S D` | Lăn khối |
 | `X` | Đổi khối đang điều khiển (chế độ split) |
-| `M` | Ghép hai khối phụ |
 | `R` | Chơi lại stage |
 | `Esc` | Thoát |
 | Kéo chuột trái/phải | Xoay camera 3D |
@@ -125,7 +124,7 @@ python main.py --all                        # mọi solver × mọi stage
 | `active` | khối đang được điều khiển (split) |
 | `bridges` | trạng thái **mọi** cây cầu (đóng / mở / khóa) |
 
-**Hành động**: `U D L R` (lăn), `X` (đổi khối), `M` (ghép). Nước đi không hợp lệ trả về `None` (ra ngoài bàn, rơi hố, cầu đóng, đứng trên ô fragile). Cấu hình cầu là một phần của trạng thái nên hai vị trí giống nhau nhưng cầu khác nhau là hai trạng thái khác nhau — đúng yêu cầu đề bài. Chỉ các ô **mới được đi vào** mới kích hoạt công tắc: khối đứng yên trên soft switch không bị kích hoạt lại khi khối còn lại di chuyển, và thao tác ghép `M` không kích hoạt công tắc.
+**Hành động**: `U D L R` (lăn), `X` (đổi khối). Hai khối đơn vị **tự động ghép** thành khối 1×1×2 ngay khi nằm trên hai ô kề nhau. Nước đi không hợp lệ trả về `None` (ra ngoài bàn, rơi hố, cầu đóng, đứng trên ô fragile). Cấu hình cầu là một phần của trạng thái nên hai vị trí giống nhau nhưng cầu khác nhau là hai trạng thái khác nhau — đúng yêu cầu đề bài. Chỉ các ô **mới được đi vào** mới kích hoạt công tắc: khối đứng yên trên soft switch không bị kích hoạt lại khi khối còn lại di chuyển; thao tác ghép tự động không làm khối di chuyển nên không kích hoạt thêm công tắc.
 
 **Cost model** (`bloxorz/search.py`):
 
@@ -133,7 +132,7 @@ python main.py --all                        # mọi solver × mọi stage
 |---|---|
 | `X` (không di chuyển) | 1 |
 | Hành động kích hoạt công tắc | 1 |
-| Lăn / ghép thông thường | 2 |
+| Lăn thông thường | 2 |
 | Đáp xuống ô fragile | +1 |
 
 - `BFS / DFS / IDS` dùng cost `uniform` (mỗi nước = 1) và tối ưu theo số nước đi.
@@ -169,7 +168,7 @@ Loader kiểm tra `set` chỉ nhận `open|closed`, bridge index phải tồn t�
 
 ```bash
 cd Source
-python -m pytest tests/ -q          # kỳ vọng: 166 passed
+python -m pytest tests/ -q          # kỳ vọng: 168 passed
 ```
 
 Bộ test bao phủ: bảng chuyển hướng, tile nâng cao, replay mọi solver trên mọi stage, tối ưu BFS vs IDS, admissible/consistency của heuristic (kể cả teleport), cost model, validate stage, soft switch không kích hoạt lại, permanent bridge, timeout/hủy DFS-IDS và chế độ đo hai lượt.
@@ -192,11 +191,11 @@ Mỗi combo chạy hai lượt: lượt đo thời gian **không bật** `tracem
 
 | Thuật toán | Độ dài TB | Node mở rộng TB | Thời gian TB (ms) | Bộ nhớ TB (KiB) |
 |---|---:|---:|---:|---:|
-| BFS | 10.3 | 106.1 | 1.81 | 20.9 |
-| DFS | 38.1 | 73.3 | 1.26 | 24.4 |
-| IDS | 10.3 | 1408.6 | 22.99 | 21.4 |
-| UCS | 10.3 | 105.7 | 3.08 | 30.1 |
-| A\* | 10.3 | 80.0 | 2.73 | 30.4 |
+| BFS | 10.3 | 106.1 | 1.77 | 20.9 |
+| DFS | 38.7 | 69.6 | 1.18 | 23.9 |
+| IDS | 10.3 | 1409.1 | 22.11 | 21.4 |
+| UCS | 10.4 | 105.7 | 3.00 | 30.0 |
+| A\* | 10.4 | 80.1 | 2.76 | 30.4 |
 
 **Nhận xét nhanh**
 
