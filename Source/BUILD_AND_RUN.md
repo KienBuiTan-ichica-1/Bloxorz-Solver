@@ -92,8 +92,8 @@ python -m pip install ruff
 
 ```powershell
 python -c "import pygame, OpenGL, matplotlib, pytest; print('pygame', pygame.version.ver, '| OpenGL', OpenGL.__version__)"
-python main.py --list          # liệt kê 10 stage
-python -m pytest tests/ -q     # kỳ vọng: 98 passed
+python main.py --list          # liệt kê 15 stage
+python -m pytest tests/ -q     # kỳ vọng: 166 passed
 ```
 
 Nếu cả ba lệnh trên chạy được thì môi trường đã sẵn sàng.
@@ -129,7 +129,7 @@ Bảng điều khiển:
 | `Restart` | chơi lại stage hiện tại |
 | `<` `>` | chuyển stage trước / kế |
 | `Undo` | hoàn nước đi cuối |
-| `Stop` | dừng việc phát lại lời giải |
+| `Stop` | hủy solver đang chạy trong thread nền hoặc dừng phát lại lời giải |
 | `BFS` `DFS` `IDS` `UCS` `A*` | chạy solver và phát lại lời giải (có thanh tiến độ) |
 
 Bàn cờ, khối 1×1×2 và hai khối đơn vị ở chế độ split được render **3D thật**
@@ -155,7 +155,7 @@ python main.py --all                                    # mọi solver × mọi 
 | `--stage N` | chọn stage (mặc định 1) |
 | `--cost {uniform,risk}` | cost model cho **UCS/A\*** (mặc định `risk`) |
 | `--verbose` / `-v` | in chuỗi nước đi (Up, Down, Left, Right, …) |
-| `--all` | chạy toàn bộ 5 solver trên 10 stage |
+| `--all` | chạy toàn bộ 5 solver trên 15 stage |
 
 > `BFS/DFS/IDS` luôn tối ưu theo **số nước đi** nên luôn dùng cost model
 > `uniform`; cờ `--cost` chỉ có ý nghĩa với `UCS/A*`.
@@ -169,25 +169,29 @@ python -m pytest tests/ -q
 python -m pytest tests/test_cost_models.py -v    # chỉ phần cost model
 ```
 
-98 test phủ: bảng chuyển hướng, các tile nâng cấp (fragile/bridge/3 loại switch),
+166 test phủ: bảng chuyển hướng, các tile nâng cấp (fragile/bridge/3 loại switch),
 mọi solver replay tới goal trên mọi stage, tính tối ưu BFS vs IDS, tính
-admissible/consistency của heuristic, mọi chi phí ≥ 1, UCS và A\* đồng thuận
-trên cùng tổng chi phí, và validate định dạng stage.
+admissible/consistency của heuristic (kể cả teleport), mọi chi phí ≥ 1, UCS và
+A\* đồng thuận trên cùng tổng chi phí, validate định dạng stage, soft switch
+không kích hoạt lại, permanent bridge, timeout/hủy DFS-IDS, và đo hai lượt.
 
 ### 3.4. Chạy experiments (dữ liệu + biểu đồ cho báo cáo)
 
 ```powershell
 python experiments/run_experiments.py             # -> experiments/results.csv
 python experiments/run_experiments.py --runs 5    # lặp lại 5 lần (lấy trung vị thời gian)
+python experiments/run_experiments.py --timeout 5 # giới hạn thời gian DFS/IDS (giây)
 python experiments/run_experiments.py --skip-ids  # bỏ IDS khỏi lần chạy
 python experiments/make_charts.py                 # -> experiments/charts/*.png + summary.md
 ```
 
 Đầu ra:
 
-* `experiments/results.csv` — 10 stage × 5 solver: thời gian (trung vị của
-  `--runs` lần chạy), bộ nhớ đỉnh (`tracemalloc`), số node mở rộng, độ dài lời
-  giải, tổng chi phí, frontier lớn nhất.
+* `experiments/results.csv` — 15 stage × 5 solver: thời gian (trung vị của
+  `--runs` lần chạy **không bật** `tracemalloc`), bộ nhớ đỉnh (từ một lượt riêng
+  có `tracemalloc`), số node mở rộng, độ dài lời giải, tổng chi phí, frontier
+  lớn nhất và `timed_out` cho DFS/IDS. Với IDS, `max_frontier` là kích thước
+  bảng transposition, không phải frontier BFS thực sự.
 * `experiments/charts/` — 4 biểu đồ PNG (`expanded_nodes`, `search_time_s`,
   `peak_memory_bytes`, `solution_length`) + `summary.md` (bảng chi tiết và bảng
   trung bình).
@@ -259,7 +263,7 @@ rm -rf StudentID1_StudentID2
 
 ### 4.3. Checklist trước khi nộp
 
-- [ ] `python -m pytest tests/ -q` → 98 passed
+- [ ] `python -m pytest tests/ -q` → 166 passed
 - [ ] `python main.py --list` chạy được từ **bản zip mới giải nén**
 - [ ] `python main.py` mở được GUI và chạy solver
 - [ ] Chạy được experiments trên bản zip mới:
