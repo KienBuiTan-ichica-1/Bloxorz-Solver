@@ -11,6 +11,7 @@ Requires matplotlib (already listed in requirements.txt).
 from __future__ import annotations
 
 import csv
+import re
 import statistics
 from collections import defaultdict
 from pathlib import Path
@@ -24,13 +25,13 @@ HERE = Path(__file__).resolve().parent
 CSV_PATH = HERE / "results.csv"
 OUT_DIR = HERE / "charts"
 
-ALGO_ORDER = ["BFS", "DFS", "IDS", "UCS", "A* (goal)"]
+ALGO_ORDER = ["BFS", "DFS", "IDS", "UCS", "A*"]
 ALGO_COLORS = {
     "BFS": "#4a90d9",
     "DFS": "#e07b39",
     "IDS": "#56d274",
     "UCS": "#c968d6",
-    "A* (goal)": "#e2c94c",
+    "A*": "#e2c94c",
 }
 METRICS = [
     ("expanded_nodes", "Expanded nodes"),
@@ -38,6 +39,12 @@ METRICS = [
     ("peak_memory_bytes", "Peak memory (KiB)"),
     ("solution_length", "Solution length (moves)"),
 ]
+
+
+def stage_key(name: str) -> list:
+    """Natural order: Level 1, Level 2, ..., Level 15."""
+    return [int(part) if part.isdigit() else part.lower()
+            for part in re.split(r"(\d+)", name)]
 
 
 def load_rows() -> list[dict]:
@@ -56,7 +63,7 @@ def load_rows() -> list[dict]:
 
 def chart_metric(rows: list[dict], key: str, title: str, filename: str,
                  logscale: bool = False, divide: float = 1.0) -> None:
-    stages = sorted({r["stage"] for r in rows})
+    stages = sorted({r["stage"] for r in rows}, key=stage_key)
     by_algo: dict[str, dict[str, float]] = defaultdict(dict)
     for r in rows:
         if not r["found"]:
@@ -91,11 +98,11 @@ def chart_metric(rows: list[dict], key: str, title: str, filename: str,
 
 
 def summary_table(rows: list[dict]) -> str:
-    stages = sorted({r["stage"] for r in rows})
+    stages = sorted({r["stage"] for r in rows}, key=stage_key)
     lines = [
         ("| Stage | Algorithm | Sol. length | Path cost | Expanded | Time (ms) "
-         "| Memory (KiB) | Max frontier |"),
-        "|---|---|---:|---:|---:|---:|---:|---:|",
+         "| Memory (KiB) | Max frontier | Status |"),
+        "|---|---|---:|---:|---:|---:|---:|---:|---|",
     ]
     for stage in stages:
         for algo in ALGO_ORDER:
@@ -104,12 +111,14 @@ def summary_table(rows: list[dict]) -> str:
             if not match:
                 continue
             r = match[0]
+            status = "timeout" if str(r.get("timed_out", "")).lower() in (
+                "true", "1") else ""
             lines.append(
                 f"| {stage} | {algo} | {r['solution_length']} "
                 f"| {r['path_cost']:.1f} | {r['expanded_nodes']} "
                 f"| {r['search_time_s'] * 1000:.2f} "
                 f"| {r['peak_memory_bytes'] / 1024:.1f} "
-                f"| {r['max_frontier']} |"
+                f"| {r['max_frontier']} | {status} |"
             )
     return "\n".join(lines)
 
