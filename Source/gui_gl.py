@@ -762,6 +762,8 @@ class GUI:
         GL.glEnd()
 
     def _text_tex(self, text, font, color):
+        if max(color) <= 1.0:  # màu lấy từ bảng C dạng 0-1, đổi sang 0-255
+            color = tuple(int(round(v * 255)) for v in color)
         key = (id(font), text, font.get_height(), color)
         hit = self._tex_cache.get(key)
         if hit is not None:
