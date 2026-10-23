@@ -205,6 +205,18 @@ def parse_stage(data: dict, path: Path | None = None) -> Stage:
                 raise ValueError(
                     f"Switch cell {cell} is marked {expected!r} but declared {kind!r}"
                 )
+        set_state = str(raw.get("set", "open")).lower()
+        if set_state not in ("open", "closed"):
+            raise ValueError(
+                f"Switch 'set' must be 'open' or 'closed', got {set_state!r}"
+            )
+        bridge_indices = tuple(int(i) for i in raw.get("bridges", []))
+        for idx in bridge_indices:
+            if not 0 <= idx < len(bridge_defaults):
+                raise ValueError(
+                    f"Switch references bridge index {idx}, but only "
+                    f"{len(bridge_defaults)} bridge(s) are declared"
+                )
         teleport = None
         if kind == "split":
             if "teleport" not in raw:
@@ -212,17 +224,30 @@ def parse_stage(data: dict, path: Path | None = None) -> Stage:
             tp = _norm_cells(raw["teleport"])
             if len(tp) != 2:
                 raise ValueError("'teleport' must contain exactly two cells")
+            if tp[0] == tp[1]:
+                raise ValueError(f"Teleport targets must be different: {tp[0]}")
             for cell in tp:
                 if cell not in tiles:
                     raise ValueError(f"Teleport target {cell} is a void cell")
+                if cell in fragile:
+                    raise ValueError(
+                        f"Teleport target {cell} is fragile; a unit cube "
+                        "cannot stand there"
+                    )
+                bridge_idx = bridge_cells.get(cell)
+                if bridge_idx is not None and not bridge_defaults[bridge_idx]:
+                    raise ValueError(
+                        f"Teleport target {cell} is on closed bridge "
+                        f"{bridge_idx}"
+                    )
             teleport = (tp[0], tp[1])
         switches.append(
             SwitchSpec(
                 kind=kind,
                 mode=mode,
                 cells=cells,
-                bridges=tuple(int(i) for i in raw.get("bridges", [])),
-                set_state=str(raw.get("set", "open")).lower(),
+                bridges=bridge_indices,
+                set_state=set_state,
                 teleport=teleport,
             )
         )
@@ -236,6 +261,13 @@ def parse_stage(data: dict, path: Path | None = None) -> Stage:
 
     if start not in tiles:
         raise ValueError(f"Start cell {start} is a void cell")
+    if start in fragile:
+        raise ValueError(f"Start cell {start} is fragile; the block would fall")
+    start_bridge = bridge_cells.get(start)
+    if start_bridge is not None and not bridge_defaults[start_bridge]:
+        raise ValueError(
+            f"Start cell {start} is on closed bridge {start_bridge}"
+        )
 
     return Stage(
         name=str(data.get("name", "Unnamed stage")),
