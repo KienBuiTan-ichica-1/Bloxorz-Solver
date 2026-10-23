@@ -787,6 +787,40 @@ class GUI:
         self._tex_cache[key] = (tid, w, h)
         return (tid, w, h)
 
+    def _ellipsize(self, text, font, max_w):
+        if not text or font.size(text)[0] <= max_w:
+            return text
+        suffix = "..."
+        lo, hi = 0, len(text)
+        while lo < hi:
+            mid = (lo + hi + 1) // 2
+            candidate = text[:mid].rstrip() + suffix
+            if font.size(candidate)[0] <= max_w:
+                lo = mid
+            else:
+                hi = mid - 1
+        return text[:lo].rstrip() + suffix
+
+    def _wrap_text(self, text, font, max_w, max_lines=None):
+        words = text.split()
+        lines = []
+        current = ""
+        for word in words:
+            candidate = f"{current} {word}".strip()
+            if not current or font.size(candidate)[0] <= max_w:
+                current = candidate
+            else:
+                lines.append(current)
+                current = word
+        if current:
+            lines.append(current)
+        if max_lines and len(lines) > max_lines:
+            tail = " ".join(lines[max_lines - 1:])
+            lines = lines[:max_lines - 1] + [
+                self._ellipsize(tail, font, max_w)
+            ]
+        return lines
+
     def _text(self, text, x, y, font, color, align="left"):
         if not text:
             return 0
@@ -836,7 +870,7 @@ class GUI:
 
     def _stat_lines(self):
         lines = [
-            ("Stage", f"{self.stage_idx + 1}/{len(self.stages)} {self.stage.name}"),
+            ("Stage", f"{self.stage_idx + 1}/{len(self.stages)}"),
             ("Mode", self.state.mode),
             ("Orientation", self.state.orient or "-"),
             ("Position", str(self.state.pos)),
@@ -894,34 +928,54 @@ class GUI:
                 GL.glEnd()
                 y += 12
                 continue
-            self._text(f"{key}:", px + 16, y, self.font_small, DIM)
-            self._text(value, px + pw - 16, y, self.font_small, TEXT, align="right")
+            key_text = f"{key}:"
+            self._text(key_text, px + 16, y, self.font_small, DIM)
+            if key == "Stage":
+                self._text(value, px + pw - 16, y, self.font_small, TEXT,
+                           align="right")
+                y += 22
+                name = self.stage.name.split(" - ", 1)[-1]
+                name = self._ellipsize(name, self.font_small, pw - 32)
+                self._text(name, px + 16, y, self.font_small, TEXT)
+            else:
+                max_w = pw - 32 - self.font_small.size(key_text)[0] - 12
+                value = self._ellipsize(value, self.font_small, max_w)
+                self._text(value, px + pw - 16, y, self.font_small, TEXT,
+                           align="right")
             y += 22
 
         y += 8
         self._text("Legend", px + 16, y, self.font_small, DIM)
         y += 24
+        hint_y = py + ph - 84
+        available = hint_y - 8 - y
+        row_h = max(16, min(22, available // max(1, len(LEGEND))))
         for key, label in LEGEND:
             self._rect(px + 18, y, 16, 16, C[key])
             self._border(px + 18, y, 16, 16, C["border"])
             self._text(label, px + 42, y - 2, self.font_small, TEXT)
-            y += 22
-
-        hint_y = py + ph - 84
+            y += row_h
         self._text("Drag: orbit   Wheel: zoom", px + 16, hint_y, self.font_small, DIM)
         self._text("Q/E: rotate   T: top   F: reset", px + 16, hint_y + 20,
                    self.font_small, DIM)
 
     def _draw_header(self):
+        panel_x = WIN_W - PANEL_W - MARGIN // 2
+        status_w = panel_x - (MARGIN + 220) - 8
+        status = self._ellipsize(self.status, self.font_small, status_w)
+        controls = "Arrows: roll   X: switch   M: merge   R: restart"
+        controls_w = self.font_small.size(controls)[0]
+        controls_x = panel_x - MARGIN - controls_w
+        desc_w = controls_x - MARGIN - 16
+        desc = self.stage.description or "Bloxorz puzzle"
+        desc_lines = self._wrap_text(desc, self.font_small, desc_w, 2)
+
         self._text("BLOXORZ", MARGIN, 8, self.font, TEXT)
-        self._text(self.stage.description or "Bloxorz puzzle", MARGIN, 36,
-                   self.font_small, DIM)
-        self._text(self.status, MARGIN + 220, 12, self.font_small,
+        self._text(status, MARGIN + 220, 12, self.font_small,
                    self.status_color)
-        self._text(
-            "Arrows: roll   X: switch cube   M: merge   R: restart",
-            MARGIN + 220, 36, self.font_small, DIM,
-        )
+        for i, line in enumerate(desc_lines):
+            self._text(line, MARGIN, 36 + i * 18, self.font_small, DIM)
+        self._text(controls, controls_x, 36, self.font_small, DIM)
 
     def _draw_buttons(self):
         nav, solvers = self._buttons()
