@@ -49,7 +49,8 @@ def risk_cost(engine: Engine):
         land = engine.landing_state(state, action)
         if land is None:
             return 1.0  # control-switch: no movement at all
-        c = 1.0 if engine.switches_triggered(land) else 2.0
+        trigger_cells = engine.trigger_cells(state, action)
+        c = 1.0 if engine.switches_triggered(land, trigger_cells) else 2.0
         if any(cell in engine.fragile for cell in land.occupied()):
             c += 1.0
         return c
@@ -66,35 +67,56 @@ def make_cost_model(engine: Engine, name: str) -> Callable:
 
 # ------------------------------------------------------------------ heuristic
 class GoalDistanceHeuristic:
-    """Admissible & consistent heuristic h(s).
+    """Admissible heuristic h(s).
 
-    Pre-compute, with a BFS on the *relaxed* grid (every non-void cell is
-    walkable, bridges / fragile / switches are ignored), the shortest-path
-    distance D(cell, goal) for all cells.  Then::
+    Pre-compute, on the *relaxed* grid (every non-void cell is walkable,
+    bridges / fragile / switches are ignored), the shortest-path distance
+    D(cell, goal) for all cells.  Grid moves cost 1 and a split-switch
+    teleport is a directed zero-cost edge from the switch cell to each
+    teleport target.  Distances are computed backwards from the goal with a
+    0-1 BFS, so a teleport target can reach its switch source for free.
+    Then::
 
-        h(state) = min over occupied cells c of D(c, goal)
+        h(state) = min over occupied cells c of ceil(D(c, goal) / 2)
 
-    Admissibility: a single action can only move the block (or one cube) so
-    that the closest occupied cell gets at most one grid cell closer to the
-    goal, therefore at least D/something actions are needed: more precisely
-    every action decreases min-D by at most 1, so any solution needs at least
-    h(state) actions, each of cost >= 1, hence cost(solution) >= h(state).
-    Consistency: |h(s) - h(s')| <= 1 <= c(s, a, s').
+    Admissibility: a single roll moves the closest occupied cell at most two
+    grid cells closer to the goal (a standing block tips over onto the two
+    cells *in front of* it, so the leading cell jumps from c to c+2).  A
+    teleport does not add a move of its own: it is part of the roll that
+    lands on the split switch.  Hence at least ceil(D/2) moves are needed,
+    and h never overestimates.
+
+    Consistency: D can decrease by at most 2 per roll, so ceil(D/2) changes
+    by at most 1 per move, which is <= every action cost.  For a teleport,
+    D(source) is the minimum of D(target) over the targets, so h does not
+    drop when the block teleports.  A* with a closed set therefore remains
+    optimal.
     """
 
     def __init__(self, engine: Engine):
         self.goal = engine.goal
         self.dist: dict[tuple[int, int], int] = {}
+        teleport_sources: dict[tuple[int, int], set[tuple[int, int]]] = {}
+        for sw in engine.switches:
+            if sw.kind == "split" and sw.teleport is not None:
+                for target in sw.teleport:
+                    teleport_sources.setdefault(target, set()).update(sw.cells)
+
         q = deque([self.goal])
         self.dist[self.goal] = 0
         while q:
             cell = q.popleft()
             r, c = cell
+            d = self.dist[cell]
             for dr, dc in ((-1, 0), (1, 0), (0, -1), (0, 1)):
                 nxt = (r + dr, c + dc)
-                if nxt in engine.relaxed_cells and nxt not in self.dist:
-                    self.dist[nxt] = self.dist[cell] + 1
+                if nxt in engine.relaxed_cells and d + 1 < self.dist.get(nxt, 10**9):
+                    self.dist[nxt] = d + 1
                     q.append(nxt)
+            for source in teleport_sources.get(cell, ()):
+                if d < self.dist.get(source, 10**9):
+                    self.dist[source] = d
+                    q.appendleft(source)
 
     def __call__(self, state: GameState) -> float:
         best = None
@@ -102,7 +124,8 @@ class GoalDistanceHeuristic:
             d = self.dist.get(cell)
             if d is None:
                 continue
-            best = d if best is None else min(best, d)
+            h_cell = (d + 1) // 2
+            best = h_cell if best is None else min(best, h_cell)
         return float(best) if best is not None else 0.0
 
 
@@ -119,6 +142,7 @@ class SearchResult:
     search_time_s: float = 0.0
     peak_memory_bytes: int = 0
     max_frontier: int = 0
+    timed_out: bool = False
 
     def actions_pretty(self) -> list[str]:
         return [ACTION_NAMES[a] for a in self.actions]
@@ -150,7 +174,13 @@ def _path_cost(cost_fn, engine: Engine, actions) -> float:
 
 
 def _finish(algorithm: str, cost_model: str, found: bool, actions, expanded,
-            t0: float, cost_fn, engine: Engine) -> SearchResult:
+            elapsed: float, peak_memory: int, cost_fn, engine: Engine,
+            timed_out: bool = False) -> SearchResult:
+    """Build a result after the search loop has stopped.
+
+    ``elapsed`` must be captured *before* replaying the path for its cost:
+    ``_path_cost`` is reporting work, not search work.
+    """
     return SearchResult(
         algorithm=algorithm,
         cost_model=cost_model,
@@ -159,17 +189,31 @@ def _finish(algorithm: str, cost_model: str, found: bool, actions, expanded,
         solution_length=len(actions),
         path_cost=_path_cost(cost_fn, engine, actions) if found else 0.0,
         expanded_nodes=expanded,
-        search_time_s=time.perf_counter() - t0,
-        peak_memory_bytes=tracemalloc.get_traced_memory()[1],
+        search_time_s=elapsed,
+        peak_memory_bytes=peak_memory,
+        timed_out=timed_out,
     )
 
 
+def _aborted(t0: float, time_limit_s: float | None,
+             should_stop: Callable[[], bool] | None) -> bool:
+    if should_stop is not None and should_stop():
+        return True
+    return time_limit_s is not None and time.perf_counter() - t0 >= time_limit_s
+
+
+def _memory_snapshot(measure_memory: bool) -> int:
+    return tracemalloc.get_traced_memory()[1] if measure_memory else 0
+
+
 # ----------------------------------------------------------------------- BFS
-def solve_bfs(engine: Engine, cost_model: str = "uniform") -> SearchResult:
+def solve_bfs(engine: Engine, cost_model: str = "uniform",
+              measure_memory: bool = True, **_ignored) -> SearchResult:
     """Breadth-First Search: optimal in number of moves (uniform cost 1)."""
     cost_fn = make_cost_model(engine, cost_model)
     start = engine.initial_state()
-    tracemalloc.start()
+    if measure_memory:
+        tracemalloc.start()
     t0 = time.perf_counter()
     try:
         frontier = deque([start])
@@ -191,22 +235,35 @@ def solve_bfs(engine: Engine, cost_model: str = "uniform") -> SearchResult:
                     parent[ns] = s
                     action_of[ns] = action
                     frontier.append(ns)
+        elapsed = time.perf_counter() - t0
+        peak = _memory_snapshot(measure_memory)
         res = _finish("BFS", cost_model, found,
                       _reconstruct(parent, action_of, goal_state) if found else [],
-                      expanded, t0, cost_fn, engine)
+                      expanded, elapsed, peak, cost_fn, engine)
         res.max_frontier = max_frontier
         return res
     finally:
-        tracemalloc.stop()
+        if measure_memory:
+            tracemalloc.stop()
 
 
 # ----------------------------------------------------------------------- DFS
-def solve_dfs(engine: Engine, cost_model: str = "uniform") -> SearchResult:
-    """Depth-First Search with a visited set (avoids cycles)."""
+def solve_dfs(engine: Engine, cost_model: str = "uniform",
+              measure_memory: bool = True,
+              time_limit_s: float | None = None,
+              should_stop: Callable[[], bool] | None = None) -> SearchResult:
+    """Depth-First Search with a visited set (avoids cycles).
+
+    ``time_limit_s`` / ``should_stop`` let experiments and the GUI abort a
+    run that is taking too long.  The partial result has ``found=False`` and
+    ``timed_out=True``.
+    """
     cost_fn = make_cost_model(engine, cost_model)
     start = engine.initial_state()
-    tracemalloc.start()
+    if measure_memory:
+        tracemalloc.start()
     t0 = time.perf_counter()
+    timed_out = False
     try:
         stack = [start]
         parent: dict[GameState, GameState | None] = {start: None}
@@ -217,6 +274,9 @@ def solve_dfs(engine: Engine, cost_model: str = "uniform") -> SearchResult:
         found = False
         goal_state = start
         while stack:
+            if expanded % 256 == 0 and _aborted(t0, time_limit_s, should_stop):
+                timed_out = True
+                break
             max_frontier = max(max_frontier, len(stack))
             s = stack.pop()
             expanded += 1
@@ -230,18 +290,23 @@ def solve_dfs(engine: Engine, cost_model: str = "uniform") -> SearchResult:
                     parent[ns] = s
                     action_of[ns] = action
                     stack.append(ns)
-        res = _finish("DFS", cost_model, found,
-                      _reconstruct(parent, action_of, goal_state) if found else [],
-                      expanded, t0, cost_fn, engine)
+        elapsed = time.perf_counter() - t0
+        peak = _memory_snapshot(measure_memory)
+        actions = _reconstruct(parent, action_of, goal_state) if found else []
+        res = _finish("DFS", cost_model, found, actions, expanded, elapsed, peak,
+                      cost_fn, engine, timed_out=timed_out)
         res.max_frontier = max_frontier
         return res
     finally:
-        tracemalloc.stop()
+        if measure_memory:
+            tracemalloc.stop()
 
 
 # ----------------------------------------------------------------------- IDS
 def solve_ids(engine: Engine, cost_model: str = "uniform",
-              max_depth: int = 200) -> SearchResult:
+              max_depth: int = 200, measure_memory: bool = True,
+              time_limit_s: float | None = None,
+              should_stop: Callable[[], bool] | None = None) -> SearchResult:
     """Iterative-Deepening Search: complete AND optimal in number of moves.
 
     Cycle handling uses a per-iteration transposition table that records, for
@@ -251,27 +316,39 @@ def solve_ids(engine: Engine, cost_model: str = "uniform",
     no solution can be missed - but the exponential re-exploration of the same
     state through different paths is eliminated (without this table Level 9
     needs >100k expansions, with it only a few hundred).
+
+    Note for the report: ``SearchResult.max_frontier`` is the maximum size of
+    the transposition table, i.e. the number of distinct states reached in one
+    iteration, not the size of a real BFS frontier.
     """
     cost_fn = make_cost_model(engine, cost_model)
     start = engine.initial_state()
-    tracemalloc.start()
+    if measure_memory:
+        tracemalloc.start()
     t0 = time.perf_counter()
+    timed_out = False
+
+    class _Aborted(Exception):
+        pass
+
     try:
         expanded = 0
-        max_frontier = 1
+        max_table = 1
         found = False
         actions: list[str] = []
 
         def dls(state: GameState, depth: int, path: list[str],
                 table: dict[GameState, int], limit: int) -> tuple | None:
             """Return (goal_state, actions) or None.  Counts expanded nodes."""
-            nonlocal expanded, max_frontier
+            nonlocal expanded, max_table
+            if expanded % 256 == 0 and _aborted(t0, time_limit_s, should_stop):
+                raise _Aborted
             reached = limit - depth
             seen_at = table.get(state)
             if seen_at is not None and seen_at <= reached:
                 return None  # already explored from at least as shallow a depth
             table[state] = reached
-            max_frontier = max(max_frontier, len(table))
+            max_table = max(max_table, len(table))
             if engine.is_goal(state):
                 return state, path
             if depth == 0:
@@ -283,26 +360,34 @@ def solve_ids(engine: Engine, cost_model: str = "uniform",
                     return hit
             return None
 
-        for depth in range(max_depth + 1):
-            hit = dls(start, depth, [], {}, depth)
-            if hit is not None:
-                found = True
-                actions = hit[1]
-                break
-        res = _finish("IDS", cost_model, found, actions, expanded, t0,
-                      cost_fn, engine)
-        res.max_frontier = max_frontier
+        try:
+            for depth in range(max_depth + 1):
+                hit = dls(start, depth, [], {}, depth)
+                if hit is not None:
+                    found = True
+                    actions = hit[1]
+                    break
+        except _Aborted:
+            timed_out = True
+        elapsed = time.perf_counter() - t0
+        peak = _memory_snapshot(measure_memory)
+        res = _finish("IDS", cost_model, found, actions, expanded, elapsed,
+                      peak, cost_fn, engine, timed_out=timed_out)
+        res.max_frontier = max_table
         return res
     finally:
-        tracemalloc.stop()
+        if measure_memory:
+            tracemalloc.stop()
 
 
 # ----------------------------------------------------------------------- UCS
-def solve_ucs(engine: Engine, cost_model: str = "risk") -> SearchResult:
+def solve_ucs(engine: Engine, cost_model: str = "risk",
+              measure_memory: bool = True, **_ignored) -> SearchResult:
     """Uniform-Cost Search: optimal with respect to the chosen cost function."""
     cost_fn = make_cost_model(engine, cost_model)
     start = engine.initial_state()
-    tracemalloc.start()
+    if measure_memory:
+        tracemalloc.start()
     t0 = time.perf_counter()
     try:
         g: dict[GameState, float] = {start: 0.0}
@@ -333,18 +418,21 @@ def solve_ucs(engine: Engine, cost_model: str = "risk") -> SearchResult:
                     action_of[ns] = action
                     counter += 1
                     heapq.heappush(heap, (ng, counter, ns))
+        elapsed = time.perf_counter() - t0
+        peak = _memory_snapshot(measure_memory)
         res = _finish("UCS", cost_model, found,
                       _reconstruct(parent, action_of, goal_state) if found else [],
-                      expanded, t0, cost_fn, engine)
+                      expanded, elapsed, peak, cost_fn, engine)
         res.max_frontier = max_frontier
         return res
     finally:
-        tracemalloc.stop()
+        if measure_memory:
+            tracemalloc.stop()
 
 
 # ------------------------------------------------------------------------ A*
 def solve_astar(engine: Engine, cost_model: str = "risk",
-                heuristic: str = "goal") -> SearchResult:
+                measure_memory: bool = True, **_ignored) -> SearchResult:
     """A* search with the admissible goal-distance heuristic.
 
     The measurement window (``tracemalloc`` + timer) is opened *before* the
@@ -352,7 +440,8 @@ def solve_astar(engine: Engine, cost_model: str = "risk",
     reported figures.
     """
     cost_fn = make_cost_model(engine, cost_model)
-    tracemalloc.start()
+    if measure_memory:
+        tracemalloc.start()
     t0 = time.perf_counter()
     try:
         h = GoalDistanceHeuristic(engine)
@@ -385,13 +474,16 @@ def solve_astar(engine: Engine, cost_model: str = "risk",
                     action_of[ns] = action
                     counter += 1
                     heapq.heappush(heap, (ng + h(ns), ng, counter, ns))
-        res = _finish(f"A* ({heuristic})", cost_model, found,
+        elapsed = time.perf_counter() - t0
+        peak = _memory_snapshot(measure_memory)
+        res = _finish("A*", cost_model, found,
                       _reconstruct(parent, action_of, goal_state) if found else [],
-                      expanded, t0, cost_fn, engine)
+                      expanded, elapsed, peak, cost_fn, engine)
         res.max_frontier = max_frontier
         return res
     finally:
-        tracemalloc.stop()
+        if measure_memory:
+            tracemalloc.stop()
 
 
 SOLVERS = {
@@ -403,11 +495,15 @@ SOLVERS = {
 }
 
 
-def solve(engine: Engine, algorithm: str, cost_model: str = "risk") -> SearchResult:
+def solve(engine: Engine, algorithm: str, cost_model: str = "risk",
+          measure_memory: bool = True, time_limit_s: float | None = None,
+          should_stop: Callable[[], bool] | None = None) -> SearchResult:
     """Run ``algorithm`` (one of :data:`SOLVERS`) on ``engine``.
 
     BFS/DFS/IDS are move-optimal, so they always report the ``uniform``
     cost model; UCS/A* use ``cost_model`` (``uniform`` or ``risk``).
+    ``time_limit_s`` and ``should_stop`` are honoured by DFS and IDS (the
+    algorithms that can run for a long time); other solvers ignore them.
     """
     try:
         fn = SOLVERS[algorithm]
@@ -416,5 +512,8 @@ def solve(engine: Engine, algorithm: str, cost_model: str = "risk") -> SearchRes
             f"Unknown algorithm {algorithm!r}; choose from {sorted(SOLVERS)}"
         ) from None
     if algorithm in ("BFS", "DFS", "IDS"):
-        return fn(engine)
-    return fn(engine, cost_model=cost_model)
+        if algorithm == "BFS":
+            return fn(engine, measure_memory=measure_memory)
+        return fn(engine, measure_memory=measure_memory,
+                  time_limit_s=time_limit_s, should_stop=should_stop)
+    return fn(engine, cost_model=cost_model, measure_memory=measure_memory)
