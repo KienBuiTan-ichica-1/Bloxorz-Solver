@@ -1,0 +1,38 @@
+{
+  "name": "Level 15 - Combined Bridge + Fragile + Split",
+  "group": "D - Combined",
+  "description": "Two bridges, a fragile stretch and a split teleport in one route",
+  "map": [
+    "...............",
+    "#Ss##0#x#1#FFt#",
+    "...............",
+    "...............",
+    ".............#.",
+    ".............#.",
+    ".............G."
+  ],
+  "start": [1, 1],
+  "bridges": ["closed", "closed"],
+  "switches": [
+    {
+      "kind": "soft",
+      "mode": "toggle",
+      "cells": [[1, 2]],
+      "bridges": [0]
+    },
+    {
+      "kind": "heavy",
+      "mode": "toggle",
+      "cells": [[1, 7]],
+      "bridges": [1]
+    },
+    {
+      "kind": "split",
+      "mode": "permanent",
+      "set": "open",
+      "cells": [[1, 13]],
+      "bridges": [],
+      "teleport": [[4, 13], [5, 13]]
+    }
+  ]
+}
