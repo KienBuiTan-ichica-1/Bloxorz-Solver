@@ -93,7 +93,7 @@ python -m pip install ruff
 ```powershell
 python -c "import pygame, OpenGL, matplotlib, pytest; print('pygame', pygame.version.ver, '| OpenGL', OpenGL.__version__)"
 python main.py --list          # liệt kê 15 stage
-python -m pytest tests/ -q     # kỳ vọng: 168 passed
+python -m pytest tests/ -q     # kỳ vọng: 180 passed
 ```
 
 Nếu cả ba lệnh trên chạy được thì môi trường đã sẵn sàng.
@@ -112,11 +112,19 @@ python main.py --gui
 
 Bảng điều khiển:
 
+Khi khởi động, màn hình chính mới cho phép bắt đầu màn hiện tại, chọn chương
+rồi chọn màn cụ thể, hoặc mở hướng dẫn; tiến độ chiến dịch cũng được hiển thị
+ngay tại đây. Trong lúc chơi, nhấn `M` hoặc nút `Home` để quay về màn hình
+chính mà không thoát chương trình.
+
 | Phím / nút | Chức năng |
 |---|---|
 | Mũi tên / `W A S D` | lăn khối |
 | `X` | đổi khối đang điều khiển (chế độ split) |
 | `R` | chơi lại stage hiện tại |
+| `L` | mở menu chọn chương |
+| `H` | mở hướng dẫn nhanh trong game |
+| `M` / nút `Home` | về màn hình chính mà không thoát game |
 | `Esc` | thoát |
 | Kéo chuột trái/phải | xoay camera 3D quanh bàn cờ |
 | Lăn chuột / `+` `-` | zoom in / out |
@@ -129,6 +137,7 @@ Bảng điều khiển:
 | `<` `>` | chuyển stage trước / kế |
 | `Undo` | hoàn nước đi cuối |
 | `Stop` | hủy solver đang chạy trong thread nền hoặc dừng phát lại lời giải |
+| `Home` | quay lại màn hình chính |
 | `BFS` `DFS` `IDS` `UCS` `A*` | chạy solver và phát lại lời giải (có thanh tiến độ) |
 
 Hai khối đơn vị **tự động ghép** lại thành khối 1×1×2 khi chúng nằm trên hai ô
@@ -138,7 +147,11 @@ Bàn cờ, khối 1×1×2 và hai khối đơn vị ở chế độ split đư�
 bằng PyOpenGL (ánh sáng, bóng đổ, animation lăn). Panel bên phải hiển thị trạng
 thái hiện tại (vị trí, hướng, cầu, lượt đi) và, sau khi chạy solver: độ dài lời
 giải, tổng chi phí, số node đã mở rộng, thời gian tìm, bộ nhớ đỉnh, kích thước
-frontier lớn nhất.
+frontier lớn nhất. Panel cũng hiển thị chương, tiến độ hoàn thành và kỷ lục số
+nước đi tốt nhất. Tiến độ được lưu tại `%USERPROFILE%\.bloxorz\progress.json`
+trên Windows (`~/.bloxorz/progress.json` trên các hệ điều hành khác).
+Khung nhìn 3D có nền không gian với tinh vân, hành tinh có vành và sao, được vẽ
+phía sau bàn cờ để không ảnh hưởng đến ánh sáng hay luật chơi.
 
 ### 3.2. Chạy từ dòng lệnh (không mở GUI)
 
@@ -171,7 +184,7 @@ python -m pytest tests/ -q
 python -m pytest tests/test_cost_models.py -v    # chỉ phần cost model
 ```
 
-168 test phủ: bảng chuyển hướng, các tile nâng cấp (fragile/bridge/3 loại switch), auto-merge,
+180 test phủ: bảng chuyển hướng, các tile nâng cấp (fragile/bridge/3 loại switch), auto-merge,
 mọi solver replay tới goal trên mọi stage, tính tối ưu BFS vs IDS, tính
 admissible/consistency của heuristic (kể cả teleport), mọi chi phí ≥ 1, UCS và
 A\* đồng thuận trên cùng tổng chi phí, validate định dạng stage, soft switch
@@ -265,7 +278,7 @@ rm -rf StudentID1_StudentID2
 
 ### 4.3. Checklist trước khi nộp
 
-- [ ] `python -m pytest tests/ -q` → 168 passed
+- [ ] `python -m pytest tests/ -q` → 180 passed
 - [ ] `python main.py --list` chạy được từ **bản zip mới giải nén**
 - [ ] `python main.py` mở được GUI và chạy solver
 - [ ] Chạy được experiments trên bản zip mới:

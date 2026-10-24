@@ -28,11 +28,19 @@ python main.py --all                # every solver on every stage
 
 ### GUI controls
 
+On startup, the home screen lets you start the current puzzle, choose a chapter
+and then a stage, or open the field guide. It also highlights your current
+stage and campaign completion. During play, press `M` or click **Home** to
+return to the home screen without quitting.
+
 | Input | Action |
 |---|---|
 | Arrow keys / WASD | Roll the block |
 | `X` | Switch the controlled cube (split mode) |
 | `R` | Restart the stage |
+| `L` | Open the chapter browser |
+| `H` | Open the in-game field guide |
+| `M` / `Home` button | Return to the home screen without quitting |
 | `Esc` | Quit |
 | Left / right drag | Orbit the 3D camera |
 | Mouse wheel / `+` `-` | Zoom |
@@ -40,12 +48,16 @@ python main.py --all                # every solver on every stage
 | `PageUp` / `PageDown` | Camera pitch |
 | `T` | Top-down view |
 | `F` | Reset the camera |
-| Buttons | New Game, Restart, `<` `>` stage, Undo, Stop, **BFS / DFS / IDS / UCS / A\*** |
+| Buttons | New Game, Restart, `<` `>` stage, Undo, Stop, Home, **BFS / DFS / IDS / UCS / A\*** |
 
-The right-hand panel shows the current state, the legend, and — after a solver
-finishes — the full measurement set (solution length, path cost, expanded nodes,
-search time, peak memory, max frontier). Solver results are replayed on the
-board with a progress bar; the block rolls through a real 3D animation.
+The right-hand panel shows the current chapter, saved completion count, best
+move count for the selected stage, and the legend. After a solver finishes it
+also shows the full measurement set (solution length, path cost, expanded
+nodes, search time, peak memory, max frontier). Solver results are replayed on
+the board with a progress bar; the block rolls through a real 3D animation.
+Completed stages and their best move counts are saved to
+`%USERPROFILE%\.bloxorz\progress.json` on Windows (or `~/.bloxorz/progress.json`
+on other platforms).
 
 ![3D board (Level 9)](screenshots/board_3d.png)
 
@@ -55,6 +67,9 @@ board with a progress bar; the block rolls through a real 3D animation.
 shaders) inside a single pygame window (`OPENGL | DOUBLEBUF`, 4× MSAA when the
 driver supports it):
 
+* **Space backdrop** — the play viewport has a layered midnight gradient,
+  soft nebulae, a ringed planet and a deterministic starfield, drawn behind the
+  3D board so camera movement and puzzle lighting remain unchanged.
 * **Scene** — every cell is a 1×1 box with per-face normals; the goal is a
   recessed cavity with a green rim, fragile tiles get hatch marks, switches are
   drawn as flat shapes (disc / cross / brackets) and a closed bridge sinks below
@@ -182,7 +197,7 @@ duplicated, out of bounds, void, fragile or on a default-closed bridge.
 python -m pytest tests/ -q
 ```
 
-168 tests: unit tests for the orientation/transition table, advanced tiles and
+180 tests: unit tests for the orientation/transition table, advanced tiles and
 automatic cube merging, every solver replayed end-to-end on every stage (the
 replay must reach the
 goal), BFS-vs-IDS optimality, empirical admissibility/consistency of the

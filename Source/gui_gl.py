@@ -48,8 +48,11 @@ except ImportError:  # pragma: no cover - exercised only without PyOpenGL
     GL = GLU = None
 
 from bloxorz.engine import ACTION_NAMES, SWITCH_CONTROL, Engine, IllegalMove
+from bloxorz.progress import load_progress, save_progress
 from bloxorz.search import solve
 from bloxorz.stage import load_stages
+
+from space_background import SpaceBackground
 
 # --------------------------------------------------------------------------- #
 # layout & palette
@@ -61,38 +64,38 @@ TILE_H = 0.28          # tile thickness (world units)
 BLOCK_ROLL_TIME = 0.15  # seconds for one roll animation
 
 C = {
-    "bg": (0.070, 0.078, 0.105),
-    "floor_top": (0.61, 0.63, 0.71),
-    "floor_side": (0.42, 0.44, 0.52),
-    "goal": (0.34, 0.84, 0.45),
-    "goal_dark": (0.05, 0.09, 0.07),
-    "fragile_top": (0.96, 0.58, 0.19),
-    "fragile_side": (0.62, 0.35, 0.10),
+    "bg": (0.035, 0.055, 0.090),
+    "floor_top": (0.58, 0.67, 0.77),
+    "floor_side": (0.31, 0.40, 0.52),
+    "goal": (0.22, 0.91, 0.65),
+    "goal_dark": (0.035, 0.13, 0.12),
+    "fragile_top": (1.00, 0.66, 0.31),
+    "fragile_side": (0.67, 0.37, 0.13),
     "fragile_line": (0.52, 0.28, 0.07),
-    "bridge_open_top": (0.64, 0.48, 0.30),
-    "bridge_open_side": (0.40, 0.29, 0.17),
-    "bridge_closed": (0.24, 0.19, 0.16),
-    "block": (0.28, 0.58, 0.92),
-    "block_active": (0.40, 0.74, 1.00),
-    "block_idle": (0.22, 0.40, 0.66),
-    "block_edge": (0.86, 0.92, 1.00),
-    "soft": (0.93, 0.85, 0.36),
-    "heavy": (0.88, 0.39, 0.39),
-    "split": (0.67, 0.42, 0.86),
+    "bridge_open_top": (0.57, 0.48, 0.77),
+    "bridge_open_side": (0.35, 0.27, 0.52),
+    "bridge_closed": (0.20, 0.18, 0.28),
+    "block": (0.16, 0.61, 0.93),
+    "block_active": (0.20, 0.85, 1.00),
+    "block_idle": (0.16, 0.37, 0.68),
+    "block_edge": (0.78, 0.94, 1.00),
+    "soft": (1.00, 0.82, 0.32),
+    "heavy": (1.00, 0.42, 0.49),
+    "split": (0.74, 0.49, 1.00),
     "shadow": (0.00, 0.00, 0.00),
-    "panel": (0.133, 0.145, 0.19),
-    "border": (0.36, 0.39, 0.47),
-    "btn": (0.20, 0.22, 0.28),
-    "btn_hover": (0.28, 0.32, 0.40),
-    "btn_on": (0.29, 0.45, 0.70),
-    "grid": (0.30, 0.32, 0.39),
-    "accent": (0.34, 0.62, 0.96),
-    "good": (0.34, 0.84, 0.45),
-    "bad": (0.89, 0.38, 0.38),
+    "panel": (0.075, 0.105, 0.16),
+    "border": (0.20, 0.29, 0.40),
+    "btn": (0.105, 0.15, 0.22),
+    "btn_hover": (0.15, 0.25, 0.34),
+    "btn_on": (0.10, 0.38, 0.52),
+    "grid": (0.20, 0.29, 0.40),
+    "accent": (0.14, 0.78, 0.95),
+    "good": (0.22, 0.91, 0.65),
+    "bad": (1.00, 0.38, 0.43),
 }
 
-TEXT = (238, 240, 246)
-DIM = (150, 156, 172)
+TEXT = (236, 245, 252)
+DIM = (143, 166, 188)
 
 LEGEND = [
     ("bg", "Void"),
@@ -125,9 +128,11 @@ class GUI:
     def __init__(self, stage_dir: Path | None = None):
         pygame.init()
         pygame.font.init()
-        self.font = pygame.font.SysFont("consolas", 20)
-        self.font_small = pygame.font.SysFont("consolas", 15)
-        self.font_title = pygame.font.SysFont("consolas", 24, bold=True)
+        self.font = pygame.font.SysFont("segoeui", 20)
+        self.font_small = pygame.font.SysFont("segoeui", 15)
+        self.font_title = pygame.font.SysFont("segoeui", 25, bold=True)
+        self.font_hero = pygame.font.SysFont("segoeui", 48, bold=True)
+        self.font_label = pygame.font.SysFont("segoeui", 12, bold=True)
         self.clock = pygame.time.Clock()
 
         self._create_window()
@@ -138,6 +143,13 @@ class GUI:
         if not self.stages:
             pygame.quit()
             raise SystemExit(f"No stage JSON files found in {directory}")
+        self.progress_path = Path.home() / ".bloxorz" / "progress.json"
+        self._progress_error = None
+        try:
+            self.progress = load_progress(self.progress_path)
+        except (OSError, ValueError) as exc:
+            self.progress = {}
+            self._progress_error = str(exc)
 
         self.view = pygame.Rect(0, 0, WIN_W - PANEL_W - MARGIN, WIN_H - 92)
         self.cam_yaw = -0.55
@@ -148,6 +160,12 @@ class GUI:
         self._tex_cache = {}
         self._nav_buttons = None
         self._solver_buttons = None
+        self.overlay = None
+        self._home_buttons = {}
+        self._chapter_hits = []
+        self._level_hits = []
+        self._overlay_back = None
+        self.selected_group = None
 
         self.dragging = False
         self.last_mouse = (0, 0)
@@ -160,8 +178,13 @@ class GUI:
         self._solver_result = None
 
         self._setup_gl_state()
+        self.space = SpaceBackground(WIN_W, WIN_H, focus=tuple(self.view))
         self.stage_idx = 0
         self.restart()
+        self.overlay = "home"
+        if self._progress_error:
+            self.status = "Progress unavailable: " + self._progress_error
+            self.status_color = C["bad"]
         self.running = True
 
     # ----------------------------------------------------------- window / gl
@@ -210,6 +233,9 @@ class GUI:
         self.sink = 0.0
         self.status = f"Loaded {self.stage.name}"
         self.status_color = TEXT
+        if self._progress_error:
+            self.status = "Progress unavailable: " + self._progress_error
+            self.status_color = C["bad"]
         self._active_algo = None
         self.ox = (self.stage.cols - 1) / 2.0
         self.oz = (self.stage.rows - 1) / 2.0
@@ -225,6 +251,40 @@ class GUI:
             return
         self.stage_idx = (self.stage_idx + delta) % len(self.stages)
         self.restart()
+
+    def _stage_key(self, stage):
+        return stage.path.name if stage.path is not None else stage.name
+
+    def _chapter_title(self, group):
+        groups = sorted({stage.group or "Other" for stage in self.stages})
+        chapter = groups.index(group) + 1
+        label = group.split("-", 1)[-1].strip() or "Core"
+        friendly = {
+            "Basic": "Foundations",
+            "Fragile": "Fragile Tiles",
+            "Switches": "Switch Lab",
+            "Combined": "Advanced Challenges",
+        }.get(label, label)
+        return f"Chapter {chapter} - {friendly}"
+
+    def _record_completion(self):
+        key = self._stage_key(self.stage)
+        moves = len(self.history)
+        old_best = self.progress.get(key)
+        if old_best is not None and old_best <= moves:
+            return
+        self.progress[key] = moves
+        if self._progress_error:
+            return
+        try:
+            save_progress(self.progress_path, self.progress)
+        except OSError as exc:
+            self._progress_error = str(exc)
+            self.status = f"Progress save failed: {exc}"
+            self.status_color = C["bad"]
+
+    def _completed_count(self):
+        return sum(self._stage_key(stage) in self.progress for stage in self.stages)
 
     # --------------------------------------------------------------- actions
     def move(self, action):
@@ -247,6 +307,7 @@ class GUI:
         if self.engine.is_goal(self.state):
             self.status = "GOAL REACHED!"
             self.status_color = C["good"]
+            self._record_completion()
         elif self.state.mode == "split":
             self.status = f"Split mode - cube {self.state.active + 1} active"
             self.status_color = TEXT
@@ -373,6 +434,7 @@ class GUI:
             if self.engine.is_goal(self.state):
                 self.status = "GOAL REACHED!"
                 self.status_color = C["good"]
+                self._record_completion()
             return
         action = self.replay[self.replay_idx]
         self.replay_idx += 1
@@ -708,6 +770,7 @@ class GUI:
         GL.glPopMatrix()
 
     def _draw_scene(self):
+        self.space.draw(self.cam_yaw, self.cam_pitch)
         self._begin_3d()
         self._draw_tiles()
         self._draw_switches()
@@ -859,6 +922,7 @@ class GUI:
             Button((MARGIN + 268, y, 60, 34), ">"),
             Button((MARGIN + 336, y, 80, 34), "Undo"),
             Button((MARGIN + 424, y, 84, 34), "Stop"),
+            Button((WIN_W - MARGIN - 88, y, 88, 34), "Home"),
         ]
         solvers = []
         x = MARGIN + 520
@@ -872,6 +936,11 @@ class GUI:
     def _stat_lines(self):
         lines = [
             ("Stage", f"{self.stage_idx + 1}/{len(self.stages)}"),
+            ("Chapter", self._chapter_title(self.stage.group or "Other")),
+            ("Progress", f"{self._completed_count()}/{len(self.stages)} cleared"),
+            ("Best moves", str(
+                self.progress.get(self._stage_key(self.stage), "-")
+            )),
             ("Mode", self.state.mode),
             ("Orientation", self.state.orient or "-"),
             ("Position", str(self.state.pos)),
@@ -907,6 +976,14 @@ class GUI:
         self._draw_buttons()
         if self.replaying:
             self._draw_progress()
+        if self.overlay == "home":
+            self._draw_home_overlay()
+        elif self.overlay == "chapters":
+            self._draw_chapters_overlay()
+        elif self.overlay == "levels":
+            self._draw_levels_overlay()
+        elif self.overlay == "help":
+            self._draw_help_overlay()
         self._ortho_end()
 
     def _draw_panel(self):
@@ -918,8 +995,15 @@ class GUI:
         self._border(px, py, pw, ph, C["border"])
 
         y = py + 14
+        self._rect(px + 1, py + 1, 4, ph - 2, C["accent"])
         self._text("Bloxorz 3D", px + 16, y, self.font_title, TEXT)
+        self._text("PUZZLE LAB", px + pw - 16, y + 9,
+                   self.font_label, C["accent"], align="right")
         y += 40
+        if self._progress_error:
+            self._text("Progress unavailable", px + 16, y,
+                       self.font_small, C["bad"])
+            y += 20
         for key, value in self._stat_lines():
             if key == "":
                 GL.glColor4f(*C["border"], 0.7)
@@ -948,35 +1032,40 @@ class GUI:
         y += 8
         self._text("Legend", px + 16, y, self.font_small, DIM)
         y += 24
-        hint_y = py + ph - 84
-        available = hint_y - 8 - y
-        row_h = max(16, min(22, available // max(1, len(LEGEND))))
-        for key, label in LEGEND:
-            self._rect(px + 18, y, 16, 16, C[key])
-            self._border(px + 18, y, 16, 16, C["border"])
-            self._text(label, px + 42, y - 2, self.font_small, TEXT)
-            y += row_h
+        for index, (key, label) in enumerate(LEGEND):
+            col = index // 5
+            row = index % 5
+            item_x = px + 18 + col * 142
+            item_y = y + row * 22
+            self._rect(item_x, item_y, 16, 16, C[key])
+            self._border(item_x, item_y, 16, 16, C["border"])
+            self._text(label, item_x + 24, item_y - 2,
+                       self.font_small, TEXT)
+        hint_y = py + ph - 46
         self._text("Drag: orbit   Wheel: zoom", px + 16, hint_y, self.font_small, DIM)
         self._text("Q/E: rotate   T: top   F: reset", px + 16, hint_y + 20,
                    self.font_small, DIM)
 
     def _draw_header(self):
-        panel_x = WIN_W - PANEL_W - MARGIN // 2
-        status_w = panel_x - (MARGIN + 220) - 8
+        max_x = WIN_W - PANEL_W - MARGIN - 20
+        content_w = max_x - MARGIN
+        status_w = content_w // 3
         status = self._ellipsize(self.status, self.font_small, status_w)
-        controls = "Arrows: roll   X: switch   R: restart"
-        controls_w = self.font_small.size(controls)[0]
-        controls_x = panel_x - MARGIN - controls_w
-        desc_w = controls_x - MARGIN - 16
+        controls = self._ellipsize(
+            "Arrows/WASD: roll   X: switch   L: levels   H: guide   R: restart",
+            self.font_small, content_w,
+        )
         desc = self.stage.description or "Bloxorz puzzle"
-        desc_lines = self._wrap_text(desc, self.font_small, desc_w, 2)
+        desc_lines = self._wrap_text(
+            desc, self.font_small, content_w - status_w - 16, 2
+        )
 
         self._text("BLOXORZ", MARGIN, 8, self.font, TEXT)
-        self._text(status, MARGIN + 220, 12, self.font_small,
-                   self.status_color)
+        self._text(controls, max_x, 12, self.font_small, DIM, align="right")
         for i, line in enumerate(desc_lines):
             self._text(line, MARGIN, 36 + i * 18, self.font_small, DIM)
-        self._text(controls, controls_x, 36, self.font_small, DIM)
+        self._text(status, max_x, 36, self.font_small, self.status_color,
+                   align="right")
 
     def _draw_buttons(self):
         nav, solvers = self._buttons()
@@ -988,10 +1077,170 @@ class GUI:
                 color = C["btn_hover"]
             else:
                 color = C["btn"]
+            self._rect(b.rect.x, b.rect.y + 2, b.rect.w, b.rect.h, (0.025, 0.04, 0.07))
             self._rect(b.rect.x, b.rect.y, b.rect.w, b.rect.h, color)
-            self._border(b.rect.x, b.rect.y, b.rect.w, b.rect.h, C["border"])
+            self._border(
+                b.rect.x, b.rect.y, b.rect.w, b.rect.h,
+                C["accent"] if b.active or b.hovered() else C["border"],
+            )
             self._text(b.text, b.rect.centerx, b.rect.centery - 8,
-                       self.font_small, TEXT, align="center")
+                       self.font_small if b.group != "solver" else self.font_label,
+                       TEXT, align="center")
+
+    def _draw_home_overlay(self):
+        self._rect(0, 0, WIN_W, WIN_H, (0.018, 0.032, 0.06), 0.94)
+        self._rect(0, 0, 9, WIN_H, C["accent"])
+        self._rect(46, 45, 1188, 730, C["panel"])
+        self._border(46, 45, 1188, 730, C["border"])
+
+        left_x = 100
+        self._text("B L O X O R Z", left_x, 102, self.font_label, C["accent"])
+        self._text("Think in", left_x, 165, self.font_hero, TEXT)
+        self._text("three dimensions.", left_x, 220, self.font_hero, TEXT)
+        self._text("A 3D puzzle. Five search strategies. One goal.",
+                   left_x, 300, self.font, DIM)
+
+        card = pygame.Rect(left_x, 374, 555, 210)
+        self._rect(card.x, card.y + 4, card.w, card.h, (0.025, 0.04, 0.07))
+        self._rect(*card, (0.095, 0.15, 0.22))
+        self._border(*card, C["border"])
+        self._rect(card.x, card.y, 5, card.h, C["accent"])
+        self._text("YOUR CURRENT CHALLENGE", card.x + 24, card.y + 20,
+                   self.font_label, C["accent"])
+        stage_name = self.stage.name.split(" - ", 1)[-1]
+        self._text(self._ellipsize(stage_name, self.font_title, 490),
+                   card.x + 24, card.y + 54, self.font_title, TEXT)
+        self._text(
+            self._ellipsize(self.stage.description, self.font_small, 490),
+            card.x + 24, card.y + 94, self.font_small, DIM,
+        )
+        self._text(
+            f"STAGE {self.stage_idx + 1:02d} / {len(self.stages):02d}",
+            card.x + 24, card.y + 151, self.font_label, TEXT,
+        )
+        self._text(
+            self._chapter_title(self.stage.group or "Other").upper(),
+            card.x + card.w - 24, card.y + 151, self.font_label, DIM,
+            align="right",
+        )
+
+        cleared = self._completed_count()
+        progress_x, progress_y, progress_w = card.x + 24, card.y + 181, 500
+        self._rect(progress_x, progress_y, progress_w, 5, C["btn"])
+        if self.stages:
+            self._rect(progress_x, progress_y,
+                       int(progress_w * cleared / len(self.stages)), 5,
+                       C["good"])
+
+        action_x = 760
+        self._text("PUZZLE CAMPAIGN", action_x, 111,
+                   self.font_label, DIM)
+        self._text("Ready to roll?", action_x, 140, self.font_title, TEXT)
+        self._home_buttons = {
+            "play": pygame.Rect(action_x, 208, 370, 62),
+            "levels": pygame.Rect(action_x, 288, 370, 58),
+            "guide": pygame.Rect(action_x, 364, 370, 58),
+        }
+        buttons = [
+            ("play", "START PUZZLE", C["accent"], (0.02, 0.08, 0.11)),
+            ("levels", "CHOOSE A CHAPTER", C["border"], TEXT),
+            ("guide", "HOW TO PLAY", C["border"], TEXT),
+        ]
+        for key, label, outline, color in buttons:
+            rect = self._home_buttons[key]
+            hovered = rect.collidepoint(pygame.mouse.get_pos())
+            fill = C["btn_hover"] if hovered else C["btn"]
+            if key == "play":
+                fill = C["accent"] if hovered else (0.10, 0.64, 0.81)
+            self._rect(rect.x, rect.y + 3, rect.w, rect.h, (0.025, 0.04, 0.07))
+            self._rect(*rect, fill)
+            self._border(rect.x, rect.y, rect.w, rect.h, outline)
+            self._text(label, rect.centerx, rect.centery - 9,
+                       self.font_label, color, align="center")
+
+        self._text("BUILT FOR CURIOUS MINDS", action_x, 462,
+                   self.font_label, C["good"])
+        self._text("Explore the board by hand, then compare",
+                   action_x, 492, self.font_small, DIM)
+        self._text("BFS, DFS, IDS, UCS and A* side by side.",
+                   action_x, 514, self.font_small, DIM)
+        self._text(
+            f"{cleared:02d} / {len(self.stages):02d} STAGES CLEARED",
+            action_x, 573, self.font_label, TEXT,
+        )
+        self._text("ENTER  play     L  chapters     H  guide",
+                   action_x, 724, self.font_small, DIM)
+
+    def _draw_overlay_back(self, x, y, destination):
+        rect = pygame.Rect(x, y, 100, 34)
+        hovered = rect.collidepoint(pygame.mouse.get_pos())
+        self._rect(*rect, C["btn_hover"] if hovered else C["btn"])
+        self._border(*rect, C["border"])
+        self._text("<  BACK", rect.centerx, rect.y + 8,
+                   self.font_label, TEXT, align="center")
+        self._overlay_back = (rect, destination)
+
+    def _draw_chapters_overlay(self):
+        self._rect(0, 0, WIN_W, WIN_H, (0.025, 0.03, 0.05), 0.90)
+        x, y, w, h = 65, 54, WIN_W - 130, WIN_H - 108
+        self._rect(x, y, w, h, C["panel"])
+        self._border(x, y, w, h, C["border"])
+        self._draw_overlay_back(x + 28, y + 18, "home")
+        self._text("CHOOSE A CHAPTER", x + 150, y + 22,
+                   self.font_title, TEXT)
+        self._text(
+            f"{len(self.stages)} stages  -  "
+            f"{self._completed_count()} cleared",
+            x + 150, y + 58, self.font_small, DIM,
+        )
+
+        grouped = {}
+        for stage_index, stage in enumerate(self.stages):
+            grouped.setdefault(stage.group or "Other", []).append(stage_index)
+        self._chapter_hits = []
+        card_w, card_h = 520, 250
+        for group_index, (group, indexes) in enumerate(sorted(grouped.items())):
+            col = group_index % 2
+            row = group_index // 2
+            card_x = x + 44 + col * 554
+            card_y = y + 112 + row * 274
+            rect = pygame.Rect(card_x, card_y, card_w, card_h)
+            hovered = rect.collidepoint(pygame.mouse.get_pos())
+            self._rect(card_x, card_y + 4, card_w, card_h, (0.025, 0.04, 0.07))
+            self._rect(*rect, C["btn_hover"] if hovered else C["btn"])
+            self._border(*rect, C["accent"] if hovered else C["border"])
+            cleared = sum(
+                self._stage_key(self.stages[index]) in self.progress
+                for index in indexes
+            )
+            self._text(f"CHAPTER {group_index + 1:02d}",
+                       card_x + 22, card_y + 20,
+                       self.font_label, C["accent"])
+            self._text(self._chapter_title(group), card_x + 22, card_y + 50,
+                       self.font_title, TEXT)
+            self._text(f"{len(indexes)} stages",
+                       card_x + 22, card_y + 98, self.font_small, DIM)
+            self._text(f"{cleared}/{len(indexes)} CLEARED",
+                       card_x + card_w - 22, card_y + 99,
+                       self.font_label, C["good"], align="right")
+            preview = ", ".join(
+                stage.name.split(" - ", 1)[-1]
+                for stage in (self.stages[index] for index in indexes[:3])
+            )
+            self._text(self._ellipsize(preview, self.font_small, card_w - 44),
+                       card_x + 22, card_y + 142, self.font_small, DIM)
+            progress_w = card_w - 44
+            self._rect(card_x + 22, card_y + 190, progress_w, 6, C["panel"])
+            if indexes:
+                self._rect(
+                    card_x + 22, card_y + 190,
+                    int(progress_w * cleared / len(indexes)), 6, C["good"],
+                )
+            self._text("VIEW STAGES  ->", card_x + 22, card_y + 214,
+                       self.font_label, TEXT)
+            self._chapter_hits.append((rect, group))
+        self._text("Choose a chapter to browse its stages.",
+                   x + 44, y + h - 32, self.font_small, DIM)
 
     def _draw_progress(self):
         total = len(self.replay)
@@ -1005,8 +1254,142 @@ class GUI:
         self._text(f"Replaying {done}/{total}", px, y + 18,
                    self.font_small, TEXT)
 
+    def _draw_levels_overlay(self):
+        self._rect(0, 0, WIN_W, WIN_H, (0.025, 0.03, 0.05), 0.86)
+        x, y, w, h = 65, 54, WIN_W - 130, WIN_H - 108
+        self._rect(x, y, w, h, C["panel"])
+        self._border(x, y, w, h, C["border"])
+        self._draw_overlay_back(x + 28, y + 18, "chapters")
+        chapter = self._chapter_title(self.selected_group or "Other")
+        self._text(chapter.upper(), x + 150, y + 20,
+                   self.font_title, TEXT)
+        self._text(
+            "Select a stage to start playing.",
+            x + 150, y + 56, self.font_small, DIM,
+        )
+
+        indexes = [
+            index for index, stage in enumerate(self.stages)
+            if (stage.group or "Other") == (self.selected_group or "Other")
+        ]
+        self._level_hits = []
+        list_x, list_y = x + 44, y + 112
+        list_w = w - 88
+        row_h = 46
+        for row_index, stage_index in enumerate(indexes):
+            hit = pygame.Rect(list_x, list_y + row_index * 54, list_w, row_h)
+            stage = self.stages[stage_index]
+            hovered = hit.collidepoint(pygame.mouse.get_pos())
+            self._rect(*hit, C["btn_hover"] if hovered else C["btn"])
+            self._border(*hit, C["accent"] if hovered else C["border"])
+            self._text(f"{stage_index + 1:02d}", hit.x + 16, hit.y + 13,
+                       self.font_label, C["accent"])
+            self._text(
+                self._ellipsize(stage.name.split(" - ", 1)[-1],
+                                self.font_small, list_w - 250),
+                hit.x + 68, hit.y + 13, self.font_small, TEXT,
+            )
+            best = self.progress.get(self._stage_key(stage))
+            badge = f"BEST {best}" if best is not None else "NOT CLEARED"
+            self._text(badge, hit.right - 18, hit.y + 14,
+                       self.font_label, C["good"] if best is not None else DIM,
+                       align="right")
+            self._level_hits.append((hit, stage_index))
+        self._text("Select a row to play. Your progress is saved automatically.",
+                   x + 44, y + h - 32, self.font_small, DIM)
+
+    def _draw_help_overlay(self):
+        self._rect(0, 0, WIN_W, WIN_H, (0.025, 0.03, 0.05), 0.86)
+        x, y, w, h = 150, 112, WIN_W - 300, WIN_H - 224
+        self._rect(x, y, w, h, C["panel"])
+        self._border(x, y, w, h, C["border"])
+        self._text("FIELD GUIDE", x + 32, y + 24, self.font_title, TEXT)
+        self._text("Objective", x + 32, y + 82, self.font, C["good"])
+        self._text("Stand the block upright on the green goal tile.",
+                   x + 32, y + 112, self.font_small, TEXT)
+        self._text("Controls", x + 32, y + 158, self.font, C["accent"])
+        guide = [
+            "Arrow keys / WASD  -  roll the block",
+            "X  -  switch active cube after a split",
+            "R  -  restart     L  -  browse stages     M  -  main menu",
+            "Drag / wheel  -  orbit and zoom the 3D board",
+        ]
+        for index, line in enumerate(guide):
+            self._text(line, x + 48, y + 190 + index * 30,
+                       self.font_small, TEXT)
+        self._text("Tile guide", x + 32, y + 338, self.font, C["accent"])
+        tile_guide = [
+            "Fragile tiles break when the block stands upright on them.",
+            "Switches change bridges; split switches create two controllable cubes.",
+            "Teleporters and heavy switches add special routes and constraints.",
+        ]
+        for index, line in enumerate(tile_guide):
+            self._text(line, x + 48, y + 370 + index * 30,
+                       self.font_small, TEXT)
+        self._text("Solver showcase", x + 32, y + 482,
+                   self.font, C["accent"])
+        self._text(
+            "Run BFS, DFS, IDS, UCS, or A* below. The panel reports solution "
+            "length, path cost,",
+            x + 48, y + 514, self.font_small, TEXT,
+        )
+        self._text(
+            "expanded nodes, search time, memory, and frontier size.",
+            x + 48, y + 538, self.font_small, TEXT,
+        )
+        self._draw_overlay_back(x + w - 132, y + 22, "home")
+
     # ---------------------------------------------------------------- events
+    def _show_home(self):
+        self._cancel_solver()
+        self.replaying = False
+        self.replay = []
+        self.replay_idx = 0
+        self._active_algo = None
+        self.overlay = "home"
+        self.dragging = False
+
     def _handle_click(self, pos):
+        if self.overlay == "home":
+            for key, rect in self._home_buttons.items():
+                if not rect.collidepoint(pos):
+                    continue
+                if key == "play":
+                    self.overlay = None
+                elif key == "levels":
+                    self.overlay = "chapters"
+                elif key == "guide":
+                    self.overlay = "help"
+                return
+            return
+        if self.overlay == "chapters":
+            if (self._overlay_back
+                    and self._overlay_back[0].collidepoint(pos)):
+                self.overlay = self._overlay_back[1]
+                return
+            for rect, group in self._chapter_hits:
+                if rect.collidepoint(pos):
+                    self.selected_group = group
+                    self.overlay = "levels"
+                    return
+            return
+        if self.overlay == "levels":
+            if (self._overlay_back
+                    and self._overlay_back[0].collidepoint(pos)):
+                self.overlay = self._overlay_back[1]
+                return
+            for rect, stage_index in self._level_hits:
+                if rect.collidepoint(pos):
+                    self.stage_idx = stage_index
+                    self.overlay = None
+                    self.restart()
+                    return
+            return
+        if self.overlay == "help":
+            if (self._overlay_back
+                    and self._overlay_back[0].collidepoint(pos)):
+                self.overlay = self._overlay_back[1]
+            return
         nav, solvers = self._buttons()
         for b in nav:
             if not b.rect.collidepoint(pos):
@@ -1047,6 +1430,8 @@ class GUI:
                 self._active_algo = None
                 self.status = "Solver stopped" if was_solving else "Replay stopped"
                 self.status_color = TEXT
+            elif b.text == "Home":
+                self._show_home()
             return
         for b in solvers:
             if b.rect.collidepoint(pos):
@@ -1070,8 +1455,36 @@ class GUI:
         return self.view.collidepoint(pos)
 
     def _on_key(self, key):
+        if self.overlay == "home":
+            if key in (pygame.K_RETURN, pygame.K_SPACE):
+                self.overlay = None
+            elif key == pygame.K_l:
+                self.overlay = "chapters"
+            elif key == pygame.K_h:
+                self.overlay = "help"
+            elif key == pygame.K_ESCAPE:
+                self.running = False
+            return
+        if self.overlay == "chapters":
+            if key in (pygame.K_ESCAPE, pygame.K_BACKSPACE):
+                self.overlay = "home"
+            return
+        if self.overlay == "levels":
+            if key in (pygame.K_ESCAPE, pygame.K_BACKSPACE):
+                self.overlay = "chapters"
+            return
+        if self.overlay == "help":
+            if key in (pygame.K_ESCAPE, pygame.K_BACKSPACE):
+                self.overlay = "home"
+            return
         if key == pygame.K_ESCAPE:
             self.running = False
+        elif key == pygame.K_m:
+            self._show_home()
+        elif key == pygame.K_l:
+            self.overlay = "levels"
+        elif key == pygame.K_h:
+            self.overlay = "help"
         elif key in (pygame.K_UP, pygame.K_w):
             self.move("U")
         elif key in (pygame.K_DOWN, pygame.K_s):
@@ -1126,11 +1539,13 @@ class GUI:
                 elif event.type == pygame.KEYDOWN:
                     self._on_key(event.key)
                 elif event.type == pygame.MOUSEBUTTONDOWN:
-                    if event.button in (1, 3) and self._in_view(event.pos):
+                    if (event.button == 1
+                            and (self.overlay is not None
+                                 or not self._in_view(event.pos))):
+                        self._handle_click(event.pos)
+                    elif event.button in (1, 3) and self._in_view(event.pos):
                         self.dragging = True
                         self.last_mouse = event.pos
-                    elif event.button == 1:
-                        self._handle_click(event.pos)
                     elif event.button == 4:
                         self.cam_dist = max(self._span * 0.7, self.cam_dist * 0.9)
                     elif event.button == 5:
