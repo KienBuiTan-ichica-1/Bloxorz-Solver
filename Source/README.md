@@ -48,7 +48,13 @@ return to the home screen without quitting.
 | `PageUp` / `PageDown` | Camera pitch |
 | `T` | Top-down view |
 | `F` | Reset the camera |
-| Buttons | New Game, Restart, `<` `>` stage, Undo, Stop, Home, **BFS / DFS / IDS / UCS / A\*** |
+| Buttons | New Game, Restart, `<` `>` stage, Undo, Stop, Board, Sound, Home, **BFS / DFS / IDS / UCS / A\*** |
+
+Background music can be toggled from the home screen or the in-game **Sound**
+button. Use **Board** during play to choose one of four board color palettes.
+The ambient music is synthesized by the GUI and requires no separate asset
+files; if the system audio device is unavailable, the game remains playable
+and reports the audio issue in the status line.
 
 The right-hand panel shows the current chapter, saved completion count, best
 move count for the selected stage, and the legend. After a solver finishes it
@@ -78,9 +84,12 @@ driver supports it):
 * **Camera** — `gluPerspective` + `gluLookAt`, orbit angles and distance stored
   as `(yaw, pitch, dist)`; drag/wheel/`Q E PageUp PageDown T F` modify them.
 * **Roll animation** — a roll rotates the box 90° about the contact edge
-  (pivot = bottom edge in the direction of the move, smoothstep easing over
-  0.15 s). The replay loop only advances a step while no animation is running,
-  and the block sinks into the hole once the goal is reached.
+  (pivot = bottom edge in the direction of the move, quintic easing over
+  0.24 s with a subtle lift). The replay loop only advances a step while no
+  animation is running, and the block sinks into the hole once the goal is
+  reached.
+* **Customization** — the in-game Board picker offers four coordinated floor,
+  bridge, and grid color palettes without changing the special-tile colors.
 * **UI overlay** — after the 3D pass an ortho pass draws the panel, buttons and
   text; strings are rendered by pygame fonts and uploaded to a small GL texture
   cache.

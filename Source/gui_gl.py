@@ -34,6 +34,7 @@ import math
 import os
 import sys
 import threading
+from array import array
 from contextlib import suppress
 from pathlib import Path
 
@@ -61,7 +62,42 @@ WIN_W, WIN_H = 1280, 820
 PANEL_W = 310
 MARGIN = 22
 TILE_H = 0.28          # tile thickness (world units)
-BLOCK_ROLL_TIME = 0.15  # seconds for one roll animation
+BLOCK_ROLL_TIME = 0.24  # seconds for one roll animation
+
+BOARD_PALETTES = [
+    {
+        "name": "Ocean",
+        "floor_top": (0.58, 0.67, 0.77),
+        "floor_side": (0.31, 0.40, 0.52),
+        "bridge_top": (0.57, 0.48, 0.77),
+        "bridge_side": (0.35, 0.27, 0.52),
+        "grid": (0.20, 0.29, 0.40),
+    },
+    {
+        "name": "Forest",
+        "floor_top": (0.46, 0.68, 0.51),
+        "floor_side": (0.22, 0.39, 0.29),
+        "bridge_top": (0.65, 0.68, 0.38),
+        "bridge_side": (0.38, 0.43, 0.22),
+        "grid": (0.19, 0.34, 0.26),
+    },
+    {
+        "name": "Sunset",
+        "floor_top": (0.78, 0.57, 0.43),
+        "floor_side": (0.49, 0.29, 0.23),
+        "bridge_top": (0.79, 0.43, 0.49),
+        "bridge_side": (0.47, 0.24, 0.32),
+        "grid": (0.40, 0.24, 0.22),
+    },
+    {
+        "name": "Violet",
+        "floor_top": (0.65, 0.57, 0.78),
+        "floor_side": (0.37, 0.29, 0.51),
+        "bridge_top": (0.48, 0.63, 0.80),
+        "bridge_side": (0.25, 0.38, 0.54),
+        "grid": (0.30, 0.25, 0.42),
+    },
+]
 
 C = {
     "bg": (0.035, 0.055, 0.090),
@@ -137,6 +173,7 @@ class GUI:
 
         self._create_window()
         pygame.display.set_caption("Bloxorz 3D - CSC14003")
+        self._initialize_music()
 
         directory = stage_dir or Path(__file__).resolve().parent / "stages"
         self.stages = load_stages(directory)
@@ -162,6 +199,9 @@ class GUI:
         self._solver_buttons = None
         self.overlay = None
         self._home_buttons = {}
+        self._palette_buttons = []
+        self._palette_open = False
+        self.board_palette_idx = 0
         self._chapter_hits = []
         self._level_hits = []
         self._overlay_back = None
@@ -186,6 +226,77 @@ class GUI:
             self.status = "Progress unavailable: " + self._progress_error
             self.status_color = C["bad"]
         self.running = True
+
+    def _initialize_music(self):
+        self.music_enabled = False
+        self._music_channel = None
+        self._audio_error = None
+        try:
+            if pygame.mixer.get_init() is None:
+                pygame.mixer.init(frequency=22050, size=-16, channels=1, buffer=512)
+            frequency, sample_format, channels = pygame.mixer.get_init()
+            if sample_format != -16:
+                raise pygame.error(
+                    f"Unsupported mixer sample format: {sample_format}"
+                )
+            samples = array("h")
+            duration = 8.0
+            chord_length = 2.0
+            chords = (
+                (110.00, 164.81, 220.00),
+                (130.81, 164.81, 196.00),
+                (98.00, 146.83, 196.00),
+                (110.00, 164.81, 220.00),
+            )
+            for index in range(int(frequency * duration)):
+                time = index / frequency
+                chord_index = int(time / chord_length) % len(chords)
+                local_time = time % chord_length
+                blend = min(1.0, local_time / 0.22)
+                previous = chords[(chord_index - 1) % len(chords)]
+                current = chords[chord_index]
+                sample = 0.0
+                for voice, (old_note, new_note) in enumerate(zip(previous, current)):
+                    gain = (0.34, 0.25, 0.18)[voice]
+                    old_wave = math.sin(2 * math.pi * old_note * time)
+                    new_wave = math.sin(2 * math.pi * new_note * time)
+                    sample += gain * (
+                        old_wave * (1.0 - blend) + new_wave * blend
+                    )
+                edge_fade = min(1.0, time / 0.12, (duration - time) / 0.12)
+                value = int(32767 * 0.20 * sample * max(0.0, edge_fade))
+                samples.append(max(-32768, min(32767, value)))
+            if sys.byteorder != "little":
+                samples.byteswap()
+            pcm = samples.tobytes()
+            if channels > 1:
+                pcm = b"".join(
+                    pcm[offset:offset + 2] * channels
+                    for offset in range(0, len(pcm), 2)
+                )
+            sound = pygame.mixer.Sound(buffer=pcm)
+            self._music_channel = pygame.mixer.Channel(0)
+            self._music_channel.set_volume(0.32)
+            self._music_channel.play(sound, loops=-1)
+            self.music_enabled = True
+        except pygame.error as exc:
+            self._audio_error = str(exc)
+
+    def _toggle_music(self):
+        if self._audio_error or self._music_channel is None:
+            self.status = "Audio unavailable: " + (self._audio_error or "mixer not ready")
+            self.status_color = C["bad"]
+            return
+        self.music_enabled = not self.music_enabled
+        if self.music_enabled:
+            self._music_channel.unpause()
+        else:
+            self._music_channel.pause()
+
+    def _select_board_palette(self, index):
+        if 0 <= index < len(BOARD_PALETTES):
+            self.board_palette_idx = index
+            self._palette_open = False
 
     # ----------------------------------------------------------- window / gl
     def _create_window(self):
@@ -611,20 +722,22 @@ class GUI:
         self._flat_quad(pts, y, color, alpha)
 
     def _tile_top_color(self, cell):
+        palette = BOARD_PALETTES[self.board_palette_idx]
         if cell == self.stage.goal:
             return C["goal"]
         if cell in self.stage.fragile:
             return C["fragile_top"]
         idx = self.stage.bridge_cells.get(cell)
         if idx is not None:
-            return C["bridge_open_top"]
+            return palette["bridge_top"]
         for sw in self.stage.switches:
             if cell in sw.cells:
-                return C["floor_top"]
-        return C["floor_top"]
+                return palette["floor_top"]
+        return palette["floor_top"]
 
     def _draw_tiles(self):
         st = self.stage
+        palette = BOARD_PALETTES[self.board_palette_idx]
         for cell in st.tiles:
             r, c = cell
             wx = c - self.ox
@@ -638,15 +751,18 @@ class GUI:
                                C["bridge_closed"])
                 continue
             top = self._tile_top_color(cell)
-            side = C["fragile_side"] if cell in st.fragile else C["floor_side"]
+            side = (
+                C["fragile_side"] if cell in st.fragile
+                else palette["floor_side"]
+            )
             if idx is not None:
-                side = C["bridge_open_side"]
+                side = palette["bridge_side"]
             self._draw_box((wx, -TILE_H / 2, wz), (1.0, TILE_H, 1.0), side, top)
             if cell in st.fragile:
                 self._draw_fragile_marks(wx, wz)
             # grid outline
             GL.glDisable(GL.GL_LIGHTING)
-            GL.glColor4f(C["grid"][0], C["grid"][1], C["grid"][2], 0.5)
+            GL.glColor4f(*palette["grid"], 0.5)
             GL.glBegin(GL.GL_LINE_LOOP)
             h = 0.5
             for vx, vz in ((-h, -h), (h, -h), (h, h), (-h, h)):
@@ -755,13 +871,15 @@ class GUI:
         px, py, pz = a["pivot"]
         ax, ay, az = a["axis"]
         t = min(1.0, a["t"])
-        ease = t * t * (3 - 2 * t)
+        ease = t * t * t * (t * (t * 6 - 15) + 10)
         ang = a["angle"] * ease
         cy -= self.sink
+        lift = 0.08 * math.sin(math.pi * t)
         GL.glPushMatrix()
         GL.glTranslated(px, py, pz)
         GL.glRotated(ang, ax, ay, az)
         GL.glTranslated(-px, -py, -pz)
+        GL.glTranslated(0.0, lift, 0.0)
         color = C["block_active"] if self.state.mode == "split" else C["block"]
         self._draw_box((cx, cy, cz), (sx, sy, sz), color)
         GL.glDisable(GL.GL_LIGHTING)
@@ -922,6 +1040,8 @@ class GUI:
             Button((MARGIN + 268, y, 60, 34), ">"),
             Button((MARGIN + 336, y, 80, 34), "Undo"),
             Button((MARGIN + 424, y, 84, 34), "Stop"),
+            Button((WIN_W - MARGIN - 326, y, 100, 34), "Board"),
+            Button((WIN_W - MARGIN - 218, y, 110, 34), "Sound"),
             Button((WIN_W - MARGIN - 88, y, 88, 34), "Home"),
         ]
         solvers = []
@@ -984,6 +1104,8 @@ class GUI:
             self._draw_levels_overlay()
         elif self.overlay == "help":
             self._draw_help_overlay()
+        if self._palette_open:
+            self._draw_palette_overlay()
         self._ortho_end()
 
     def _draw_panel(self):
@@ -1037,7 +1159,13 @@ class GUI:
             row = index % 5
             item_x = px + 18 + col * 142
             item_y = y + row * 22
-            self._rect(item_x, item_y, 16, 16, C[key])
+            if key == "floor_top":
+                legend_color = BOARD_PALETTES[self.board_palette_idx]["floor_top"]
+            elif key == "bridge_open_top":
+                legend_color = BOARD_PALETTES[self.board_palette_idx]["bridge_top"]
+            else:
+                legend_color = C[key]
+            self._rect(item_x, item_y, 16, 16, legend_color)
             self._border(item_x, item_y, 16, 16, C["border"])
             self._text(label, item_x + 24, item_y - 2,
                        self.font_small, TEXT)
@@ -1070,7 +1198,15 @@ class GUI:
     def _draw_buttons(self):
         nav, solvers = self._buttons()
         for b in nav + solvers:
-            b.active = b.group == "solver" and b.text == self._active_algo
+            if b.text == "Sound":
+                b.active = self.music_enabled
+                label = "Sound: On" if self.music_enabled else "Sound: Off"
+                if self._audio_error:
+                    label = "Sound: N/A"
+                display_text = label
+            else:
+                display_text = b.text
+                b.active = b.group == "solver" and b.text == self._active_algo
             if b.active:
                 color = C["btn_on"]
             elif b.hovered():
@@ -1083,7 +1219,7 @@ class GUI:
                 b.rect.x, b.rect.y, b.rect.w, b.rect.h,
                 C["accent"] if b.active or b.hovered() else C["border"],
             )
-            self._text(b.text, b.rect.centerx, b.rect.centery - 8,
+            self._text(display_text, b.rect.centerx, b.rect.centery - 8,
                        self.font_small if b.group != "solver" else self.font_label,
                        TEXT, align="center")
 
@@ -1140,11 +1276,19 @@ class GUI:
             "play": pygame.Rect(action_x, 208, 370, 62),
             "levels": pygame.Rect(action_x, 288, 370, 58),
             "guide": pygame.Rect(action_x, 364, 370, 58),
+            "music": pygame.Rect(action_x, 438, 370, 44),
         }
         buttons = [
             ("play", "START PUZZLE", C["accent"], (0.02, 0.08, 0.11)),
             ("levels", "CHOOSE A CHAPTER", C["border"], TEXT),
             ("guide", "HOW TO PLAY", C["border"], TEXT),
+            (
+                "music",
+                "BACKGROUND MUSIC: ON" if self.music_enabled
+                else "BACKGROUND MUSIC: OFF",
+                C["good"] if self.music_enabled else C["border"],
+                TEXT,
+            ),
         ]
         for key, label, outline, color in buttons:
             rect = self._home_buttons[key]
@@ -1158,18 +1302,43 @@ class GUI:
             self._text(label, rect.centerx, rect.centery - 9,
                        self.font_label, color, align="center")
 
-        self._text("BUILT FOR CURIOUS MINDS", action_x, 462,
+        self._text("BUILT FOR CURIOUS MINDS", action_x, 510,
                    self.font_label, C["good"])
         self._text("Explore the board by hand, then compare",
-                   action_x, 492, self.font_small, DIM)
+                   action_x, 540, self.font_small, DIM)
         self._text("BFS, DFS, IDS, UCS and A* side by side.",
-                   action_x, 514, self.font_small, DIM)
+                   action_x, 562, self.font_small, DIM)
         self._text(
             f"{cleared:02d} / {len(self.stages):02d} STAGES CLEARED",
-            action_x, 573, self.font_label, TEXT,
+            action_x, 615, self.font_label, TEXT,
         )
         self._text("ENTER  play     L  chapters     H  guide",
                    action_x, 724, self.font_small, DIM)
+
+    def _draw_palette_overlay(self):
+        x, y, w, h = 330, 300, 620, 205
+        self._rect(0, 0, WIN_W, WIN_H, (0.018, 0.032, 0.06), 0.62)
+        self._rect(x, y, w, h, C["panel"])
+        self._border(x, y, w, h, C["border"])
+        self._text("CHOOSE BOARD COLOR", x + 26, y + 20,
+                   self.font_title, TEXT)
+        self._palette_buttons = []
+        for index, palette in enumerate(BOARD_PALETTES):
+            rect = pygame.Rect(x + 24 + index * 145, y + 78, 132, 90)
+            self._palette_buttons.append((rect, index))
+            selected = index == self.board_palette_idx
+            hovered = rect.collidepoint(pygame.mouse.get_pos())
+            self._rect(*rect, C["btn_hover"] if hovered else C["btn"])
+            self._rect(rect.x + 10, rect.y + 10, rect.w - 20, 42,
+                       palette["floor_top"])
+            self._border(
+                rect.x, rect.y, rect.w, rect.h,
+                C["accent"] if selected else C["border"],
+            )
+            self._text(palette["name"], rect.centerx, rect.y + 60,
+                       self.font_small, TEXT, align="center")
+        self._text("Click a palette or press Esc to close",
+                   x + w // 2, y + 178, self.font_small, DIM, align="center")
 
     def _draw_overlay_back(self, x, y, destination):
         rect = pygame.Rect(x, y, 100, 34)
@@ -1350,6 +1519,13 @@ class GUI:
         self.dragging = False
 
     def _handle_click(self, pos):
+        if self._palette_open:
+            for rect, index in self._palette_buttons:
+                if rect.collidepoint(pos):
+                    self._select_board_palette(index)
+                    return
+            self._palette_open = False
+            return
         if self.overlay == "home":
             for key, rect in self._home_buttons.items():
                 if not rect.collidepoint(pos):
@@ -1360,6 +1536,8 @@ class GUI:
                     self.overlay = "chapters"
                 elif key == "guide":
                     self.overlay = "help"
+                elif key == "music":
+                    self._toggle_music()
                 return
             return
         if self.overlay == "chapters":
@@ -1432,6 +1610,10 @@ class GUI:
                 self.status_color = TEXT
             elif b.text == "Home":
                 self._show_home()
+            elif b.text == "Board":
+                self._palette_open = True
+            elif b.text == "Sound":
+                self._toggle_music()
             return
         for b in solvers:
             if b.rect.collidepoint(pos):
@@ -1454,7 +1636,14 @@ class GUI:
     def _in_view(self, pos):
         return self.view.collidepoint(pos)
 
+    def _click_is_ui(self, pos):
+        return self.overlay is not None or self._palette_open or not self._in_view(pos)
+
     def _on_key(self, key):
+        if self._palette_open:
+            if key in (pygame.K_ESCAPE, pygame.K_BACKSPACE):
+                self._palette_open = False
+            return
         if self.overlay == "home":
             if key in (pygame.K_RETURN, pygame.K_SPACE):
                 self.overlay = None
@@ -1539,9 +1728,7 @@ class GUI:
                 elif event.type == pygame.KEYDOWN:
                     self._on_key(event.key)
                 elif event.type == pygame.MOUSEBUTTONDOWN:
-                    if (event.button == 1
-                            and (self.overlay is not None
-                                 or not self._in_view(event.pos))):
+                    if event.button == 1 and self._click_is_ui(event.pos):
                         self._handle_click(event.pos)
                     elif event.button in (1, 3) and self._in_view(event.pos):
                         self.dragging = True

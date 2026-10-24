@@ -12,6 +12,7 @@ def make_gui():
         "play": pygame.Rect(10, 10, 80, 30),
         "levels": pygame.Rect(10, 50, 80, 30),
         "guide": pygame.Rect(10, 90, 80, 30),
+        "music": pygame.Rect(10, 130, 80, 30),
     }
     gui._chapter_hits = []
     gui._level_hits = []
@@ -20,6 +21,7 @@ def make_gui():
     gui.stage_idx = 0
     gui.stages = [object(), object()]
     gui.restart = lambda: None
+    gui._palette_open = False
     return gui
 
 
@@ -87,3 +89,56 @@ def test_home_button_returns_from_game_without_changing_stage():
 
     assert gui.overlay == "home"
     assert gui.stage_idx == 0
+
+
+def test_home_music_button_toggles_background_music():
+    gui = make_gui()
+    gui.music_enabled = True
+    gui._audio_error = None
+    gui._music_channel = SimpleNamespace(pause=lambda: None, unpause=lambda: None)
+    gui._toggle_music = lambda: setattr(gui, "music_enabled", not gui.music_enabled)
+
+    gui._handle_click((20, 140))
+
+    assert gui.music_enabled is False
+
+
+def test_board_button_opens_palette_and_color_choice_closes_it():
+    gui = make_gui()
+    gui.overlay = None
+    board = SimpleNamespace(text="Board", rect=pygame.Rect(10, 10, 80, 30))
+    gui._buttons = lambda: ([board], [])
+    gui.board_palette_idx = 0
+
+    gui._handle_click(board.rect.center)
+
+    assert gui._palette_open is True
+    gui._palette_buttons = [(pygame.Rect(100, 100, 80, 40), 2)]
+    gui._handle_click((110, 110))
+
+    assert gui.board_palette_idx == 2
+    assert gui._palette_open is False
+
+
+def test_palette_clicks_inside_game_view_are_routed_to_ui():
+    gui = make_gui()
+    gui.overlay = None
+    gui._palette_open = True
+    gui.view = pygame.Rect(0, 0, 948, 728)
+    palette_option = pygame.Rect(354, 378, 132, 90)
+
+    assert gui._in_view(palette_option.center)
+    assert gui._click_is_ui(palette_option.center)
+
+
+def test_game_sound_button_toggles_background_music():
+    gui = make_gui()
+    gui.overlay = None
+    sound = SimpleNamespace(text="Sound", rect=pygame.Rect(10, 10, 80, 30))
+    gui._buttons = lambda: ([sound], [])
+    gui._toggle_music = lambda: setattr(gui, "music_enabled", not gui.music_enabled)
+    gui.music_enabled = True
+
+    gui._handle_click(sound.rect.center)
+
+    assert gui.music_enabled is False
