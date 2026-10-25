@@ -1,0 +1,18 @@
+{
+  "id": "L06", "name": "Công tắc nặng", "group": "switch",
+  "desc": "Công tắc chữ X chỉ nhận khi khối đứng thẳng; mỗi lần nhận sẽ đảo trạng thái cầu.",
+  "grid": [
+    "#######......",
+    "#S##x#BBBBG##",
+    "#######......"
+  ],
+  "bridges": [
+    {"id": "A", "pos": [1, 6], "open": false},
+    {"id": "A", "pos": [1, 7], "open": false},
+    {"id": "A", "pos": [1, 8], "open": false},
+    {"id": "A", "pos": [1, 9], "open": false}
+  ],
+  "switches": [
+    {"pos": [1, 4], "targets": ["A"], "mode": "toggle"}
+  ]
+}

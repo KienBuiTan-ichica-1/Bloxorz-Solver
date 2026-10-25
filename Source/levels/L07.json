@@ -1,0 +1,14 @@
+{
+  "id": "L07", "name": "Tách đôi", "group": "split",
+  "desc": "Đứng lên công tắc ngoặc để tách khối làm hai, rồi ghép lại ở chỗ khác.",
+  "grid": [
+    "########....",
+    "#S##p###....",
+    "############",
+    "#########G##",
+    "############"
+  ],
+  "switches": [
+    {"pos": [1, 4], "split_to": [[0, 6], [4, 1]]}
+  ]
+}

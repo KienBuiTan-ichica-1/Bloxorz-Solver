@@ -1,0 +1,157 @@
+{
+ "id": "L20",
+ "name": "Vòng cung",
+ "group": "expert",
+ "desc": "Ba cây cầu xếp thành chữ U; công tắc mềm mở hai nhịp đầu, công tắc nặng mở nhịp cuối.",
+ "grid": [
+  "S#####.....#####G",
+  "######.....######",
+  "######.....######",
+  "######.....######",
+  "####o#.....######",
+  ".BBBB......BBBB..",
+  "######.....###x##",
+  "######.....######",
+  "######BBBBB######",
+  "######.....######",
+  "###o##.....######"
+ ],
+ "bridges": [
+  {
+   "id": "A",
+   "pos": [
+    5,
+    1
+   ],
+   "open": false
+  },
+  {
+   "id": "A",
+   "pos": [
+    5,
+    2
+   ],
+   "open": false
+  },
+  {
+   "id": "A",
+   "pos": [
+    5,
+    3
+   ],
+   "open": false
+  },
+  {
+   "id": "A",
+   "pos": [
+    5,
+    4
+   ],
+   "open": false
+  },
+  {
+   "id": "B",
+   "pos": [
+    8,
+    6
+   ],
+   "open": false
+  },
+  {
+   "id": "B",
+   "pos": [
+    8,
+    7
+   ],
+   "open": false
+  },
+  {
+   "id": "B",
+   "pos": [
+    8,
+    8
+   ],
+   "open": false
+  },
+  {
+   "id": "B",
+   "pos": [
+    8,
+    9
+   ],
+   "open": false
+  },
+  {
+   "id": "B",
+   "pos": [
+    8,
+    10
+   ],
+   "open": false
+  },
+  {
+   "id": "C",
+   "pos": [
+    5,
+    11
+   ],
+   "open": false
+  },
+  {
+   "id": "C",
+   "pos": [
+    5,
+    12
+   ],
+   "open": false
+  },
+  {
+   "id": "C",
+   "pos": [
+    5,
+    13
+   ],
+   "open": false
+  },
+  {
+   "id": "C",
+   "pos": [
+    5,
+    14
+   ],
+   "open": false
+  }
+ ],
+ "switches": [
+  {
+   "pos": [
+    4,
+    4
+   ],
+   "targets": [
+    "A"
+   ],
+   "mode": "open"
+  },
+  {
+   "pos": [
+    10,
+    3
+   ],
+   "targets": [
+    "B"
+   ],
+   "mode": "open"
+  },
+  {
+   "pos": [
+    6,
+    14
+   ],
+   "targets": [
+    "C"
+   ],
+   "mode": "open"
+  }
+ ]
+}

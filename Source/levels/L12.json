@@ -1,0 +1,107 @@
+{
+ "id": "L12",
+ "name": "Bẫy công tắc",
+ "group": "switch",
+ "desc": "Một công tắc mở cầu, công tắc kia đóng cầu lại. Đừng chạm nhầm.",
+ "grid": [
+  "#######BBB####",
+  "#S#o#o#BBB#G##",
+  "#######BBB####"
+ ],
+ "bridges": [
+  {
+   "id": "A",
+   "pos": [
+    0,
+    7
+   ],
+   "open": false
+  },
+  {
+   "id": "A",
+   "pos": [
+    0,
+    8
+   ],
+   "open": false
+  },
+  {
+   "id": "A",
+   "pos": [
+    0,
+    9
+   ],
+   "open": false
+  },
+  {
+   "id": "A",
+   "pos": [
+    1,
+    7
+   ],
+   "open": false
+  },
+  {
+   "id": "A",
+   "pos": [
+    1,
+    8
+   ],
+   "open": false
+  },
+  {
+   "id": "A",
+   "pos": [
+    1,
+    9
+   ],
+   "open": false
+  },
+  {
+   "id": "A",
+   "pos": [
+    2,
+    7
+   ],
+   "open": false
+  },
+  {
+   "id": "A",
+   "pos": [
+    2,
+    8
+   ],
+   "open": false
+  },
+  {
+   "id": "A",
+   "pos": [
+    2,
+    9
+   ],
+   "open": false
+  }
+ ],
+ "switches": [
+  {
+   "pos": [
+    1,
+    3
+   ],
+   "targets": [
+    "A"
+   ],
+   "mode": "open"
+  },
+  {
+   "pos": [
+    1,
+    5
+   ],
+   "targets": [
+    "A"
+   ],
+   "mode": "close"
+  }
+ ]
+}

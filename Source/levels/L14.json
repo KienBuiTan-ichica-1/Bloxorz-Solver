@@ -1,0 +1,41 @@
+{
+ "id": "L14",
+ "name": "Bước từng nhịp",
+ "group": "combined",
+ "desc": "Đứng đúng ô trên hành lang gạch vỡ để nhấn công tắc nặng và hạ cầu.",
+ "grid": [
+  "#####.....####",
+  "#SFF#FFxFF#BBG",
+  "#####.....####"
+ ],
+ "bridges": [
+  {
+   "id": "B",
+   "pos": [
+    1,
+    11
+   ],
+   "open": false
+  },
+  {
+   "id": "B",
+   "pos": [
+    1,
+    12
+   ],
+   "open": false
+  }
+ ],
+ "switches": [
+  {
+   "pos": [
+    1,
+    7
+   ],
+   "targets": [
+    "B"
+   ],
+   "mode": "toggle"
+  }
+ ]
+}

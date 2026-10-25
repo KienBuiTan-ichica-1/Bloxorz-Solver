@@ -1,0 +1,74 @@
+{
+ "id": "L13",
+ "name": "Hai bờ",
+ "group": "split",
+ "desc": "Tách khối, một nửa sang bờ bên kia bấm công tắc mở cầu, rồi ghép lại.",
+ "grid": [
+  "#####..######",
+  "#S#p#BB#o####",
+  "#####BB###G##",
+  "#####..######"
+ ],
+ "bridges": [
+  {
+   "id": "A",
+   "pos": [
+    1,
+    5
+   ],
+   "open": false
+  },
+  {
+   "id": "A",
+   "pos": [
+    1,
+    6
+   ],
+   "open": false
+  },
+  {
+   "id": "A",
+   "pos": [
+    2,
+    5
+   ],
+   "open": false
+  },
+  {
+   "id": "A",
+   "pos": [
+    2,
+    6
+   ],
+   "open": false
+  }
+ ],
+ "switches": [
+  {
+   "pos": [
+    1,
+    3
+   ],
+   "split_to": [
+    [
+     0,
+     2
+    ],
+    [
+     3,
+     9
+    ]
+   ]
+  },
+  {
+   "pos": [
+    1,
+    8
+   ],
+   "targets": [
+    "A"
+   ],
+   "mode": "open"
+  }
+ ]
+}

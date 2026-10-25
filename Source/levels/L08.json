@@ -1,0 +1,20 @@
+{
+  "id": "L08", "name": "Hai khối, một cây cầu", "group": "combined",
+  "desc": "Hành lang gạch vỡ cuối có công tắc: chỉ khối nhỏ mới đi qua được để mở cầu.",
+  "grid": [
+    "######.......",
+    "#S#p##FFFo...",
+    "######.......",
+    "######BBB####",
+    "######...##G#"
+  ],
+  "bridges": [
+    {"id": "A", "pos": [3, 6], "open": false},
+    {"id": "A", "pos": [3, 7], "open": false},
+    {"id": "A", "pos": [3, 8], "open": false}
+  ],
+  "switches": [
+    {"pos": [1, 3], "split_to": [[0, 2], [4, 2]]},
+    {"pos": [1, 9], "targets": ["A"], "mode": "open"}
+  ]
+}

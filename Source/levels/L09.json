@@ -1,0 +1,179 @@
+{
+ "id": "L09",
+ "name": "Hai chặng",
+ "group": "combined",
+ "desc": "Công tắc nặng đảo cầu A, công tắc mềm mở cầu B, xen kẽ gạch dễ vỡ.",
+ "grid": [
+  "S#####BBB####BBB###",
+  "#x####BBB##o#BBB##G",
+  "###FF#BBB####BBB###"
+ ],
+ "bridges": [
+  {
+   "id": "A",
+   "pos": [
+    0,
+    6
+   ],
+   "open": false
+  },
+  {
+   "id": "A",
+   "pos": [
+    0,
+    7
+   ],
+   "open": false
+  },
+  {
+   "id": "A",
+   "pos": [
+    0,
+    8
+   ],
+   "open": false
+  },
+  {
+   "id": "A",
+   "pos": [
+    1,
+    6
+   ],
+   "open": false
+  },
+  {
+   "id": "A",
+   "pos": [
+    1,
+    7
+   ],
+   "open": false
+  },
+  {
+   "id": "A",
+   "pos": [
+    1,
+    8
+   ],
+   "open": false
+  },
+  {
+   "id": "A",
+   "pos": [
+    2,
+    6
+   ],
+   "open": false
+  },
+  {
+   "id": "A",
+   "pos": [
+    2,
+    7
+   ],
+   "open": false
+  },
+  {
+   "id": "A",
+   "pos": [
+    2,
+    8
+   ],
+   "open": false
+  },
+  {
+   "id": "B",
+   "pos": [
+    0,
+    13
+   ],
+   "open": false
+  },
+  {
+   "id": "B",
+   "pos": [
+    0,
+    14
+   ],
+   "open": false
+  },
+  {
+   "id": "B",
+   "pos": [
+    0,
+    15
+   ],
+   "open": false
+  },
+  {
+   "id": "B",
+   "pos": [
+    1,
+    13
+   ],
+   "open": false
+  },
+  {
+   "id": "B",
+   "pos": [
+    1,
+    14
+   ],
+   "open": false
+  },
+  {
+   "id": "B",
+   "pos": [
+    1,
+    15
+   ],
+   "open": false
+  },
+  {
+   "id": "B",
+   "pos": [
+    2,
+    13
+   ],
+   "open": false
+  },
+  {
+   "id": "B",
+   "pos": [
+    2,
+    14
+   ],
+   "open": false
+  },
+  {
+   "id": "B",
+   "pos": [
+    2,
+    15
+   ],
+   "open": false
+  }
+ ],
+ "switches": [
+  {
+   "pos": [
+    1,
+    1
+   ],
+   "targets": [
+    "A"
+   ],
+   "mode": "toggle"
+  },
+  {
+   "pos": [
+    1,
+    11
+   ],
+   "targets": [
+    "B"
+   ],
+   "mode": "open"
+  }
+ ]
+}

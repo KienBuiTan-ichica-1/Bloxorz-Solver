@@ -1,209 +1,106 @@
-# Bloxorz Solver — CSC14003 Project 1
+# Bloxorz 3D Solver (CSC14003 - Project 1)
 
-A playable **Bloxorz** implementation (core mechanics + advanced tiles) together
-with four families of search algorithms — **BFS, DFS, IDS, UCS, A\*** — built
-from scratch, plus an experiment harness that measures search time, peak memory,
-expanded nodes and solution length. The board is rendered in **real 3D** with
-PyOpenGL (lighting, shadows, rolling animation, orbit camera).
+Game Bloxorz có giao diện 3D chạy trên trình duyệt (Three.js + React + TypeScript) và bốn bộ giải
+BFS, DFS, UCS, A* viết tay bằng Python (FastAPI). Chỉ thuật toán tìm kiếm bắt buộc dùng Python;
+frontend TypeScript chỉ dựng GUI và mô phỏng luật chơi, không cài đặt solver.
 
-## Requirements
+## Cách chạy
 
-* Python 3.10+ (tested on 3.11, Windows)
-* `pip install -r requirements.txt` (pygame + PyOpenGL for the 3D GUI, matplotlib
-  for the charts, pytest for the tests)
-* A GPU/driver with OpenGL 2.0+ (any modern machine)
-
-Step-by-step install / run / build instructions (virtualenv, packaging the
-submission, troubleshooting): see **[BUILD_AND_RUN.md](BUILD_AND_RUN.md)**.
-
-## Run
+**Cách 1: chỉ cần Python** (frontend đã build sẵn trong `frontend/dist`)
 
 ```bash
-python main.py                      # 3D GUI (default)
-python main.py --list               # list the 15 stages
-python main.py --solve A* --stage 7 # solve stage 7 from the terminal
-python main.py --solve UCS --cost uniform -v   # print the move sequence
-python main.py --all                # every solver on every stage
+pip install -r requirements.txt
+python main.py            # mở http://127.0.0.1:8000
 ```
 
-### GUI controls
+**Cách 2: chế độ phát triển** (cần Node 18+)
 
-| Input | Action |
+```bash
+# terminal 1
+pip install -r requirements.txt
+uvicorn main:app --port 8000
+# terminal 2
+cd frontend
+npm install
+npm run dev               # mở http://localhost:5173
+```
+
+Build lại frontend: `cd frontend && npm run build`.
+Game chơi tay không cần backend; backend chỉ cần cho nút Solve và tab Thực nghiệm.
+
+## Điều khiển
+
+| Phím | Tác dụng |
 |---|---|
-| Arrow keys / WASD | Roll the block |
-| `X` | Switch the controlled cube (split mode) |
-| `R` | Restart the stage |
-| `Esc` | Quit |
-| Left / right drag | Orbit the 3D camera |
-| Mouse wheel / `+` `-` | Zoom |
-| `Q` / `E` | Rotate the camera |
-| `PageUp` / `PageDown` | Camera pitch |
-| `T` | Top-down view |
-| `F` | Reset the camera |
-| Buttons | New Game, Restart, `<` `>` stage, Undo, Stop, **BFS / DFS / IDS / UCS / A\*** |
+| Mũi tên hoặc WASD | Lăn khối |
+| Space | Đổi khối đang điều khiển (khi đã tách) |
+| Z / R | Hoàn tác / chơi lại |
+| M | Bật/tắt nhạc nền |
+| Chuột | Kéo để xoay, lăn để zoom |
 
-The right-hand panel shows the current state, the legend, and — after a solver
-finishes — the full measurement set (solution length, path cost, expanded nodes,
-search time, peak memory, max frontier). Solver results are replayed on the
-board with a progress bar; the block rolls through a real 3D animation.
+Giao diện có các nút New Game, Restart, Solve BFS/DFS/UCS/A*, phát lại lời giải, và tab Thực nghiệm (4 biểu đồ, xuất CSV).
 
-![3D board (Level 9)](screenshots/board_3d.png)
+## Âm thanh
 
-## 3D view
+Toàn bộ âm thanh được tổng hợp bằng Web Audio (`frontend/src/audio.ts`), không cần file nhạc.
+Nhạc nền tự sinh (vòng hợp âm Am - F - C - G, có pad, bass, arpeggio và echo).
+Mỗi nước đi có tiếng lăn, tiếng chạm sàn kèm một nốt thang ngũ cung nên các nước đi nghe như giai điệu;
+ngoài ra có tiếng riêng cho gạch dễ vỡ, từng loại công tắc, cầu mở/đóng, tách/ghép khối, rơi, bàn vỡ và thắng.
+Trình duyệt chỉ cho phát sau thao tác đầu tiên của người dùng (bấm hoặc gõ phím).
+Bật/tắt và chỉnh âm lượng ở mục Âm thanh bên trái; cài đặt được lưu trong trình duyệt.
 
-`gui_gl.py` renders everything with the **fixed-function OpenGL** pipeline (no
-shaders) inside a single pygame window (`OPENGL | DOUBLEBUF`, 4× MSAA when the
-driver supports it):
+## Giao diện và hiệu ứng
 
-* **Scene** — every cell is a 1×1 box with per-face normals; the goal is a
-  recessed cavity with a green rim, fragile tiles get hatch marks, switches are
-  drawn as flat shapes (disc / cross / brackets) and a closed bridge sinks below
-  the floor plane. The board is centred at the origin and lit by two directional
-  lights (world space) with `GL_COLOR_MATERIAL`.
-* **Camera** — `gluPerspective` + `gluLookAt`, orbit angles and distance stored
-  as `(yaw, pitch, dist)`; drag/wheel/`Q E PageUp PageDown T F` modify them.
-* **Roll animation** — a roll rotates the box 90° about the contact edge
-  (pivot = bottom edge in the direction of the move, smoothstep easing over
-  0.15 s). The replay loop only advances a step while no animation is running,
-  and the block sinks into the hole once the goal is reached.
-* **UI overlay** — after the 3D pass an ortho pass draws the panel, buttons and
-  text; strings are rendered by pygame fonts and uploaded to a small GL texture
-  cache.
-* **Screenshots / headless checks** — set `BLOXORZ_GL_FRAMES` to quit after N
-  frames and `BLOXORZ_GL_SHOT=path.png` to save a screenshot (this is how the
-  images in `screenshots/` were produced).
+Bàn chơi dùng màu trắng, ô đích màu đỏ hồng phát sáng. Khi khối rơi xuống — lăn ra ngoài, xuống cầu đang đóng
+hoặc đứng trên gạch dễ vỡ — toàn bộ bàn vỡ vụn thành từng mảnh, sau đó các mảnh ghép lại và màn chơi tự khởi động lại.
+Sáu màn L16–L21 thuộc nhóm **Thử thách**, dài và nhiều cơ chế hơn 15 màn gốc.
 
-![Rolling animation (mid-roll)](screenshots/rolling_3d.png)
-
-![Advanced tiles: fragile, bridge, soft switch (Level 7)](screenshots/switches_3d.png)
-
-## Project layout
+## Cấu trúc
 
 ```
 Source/
-├── main.py                 entry point (GUI + CLI)
-├── gui_gl.py               PyOpenGL 3D GUI (board, block, camera, overlay UI)
-├── requirements.txt
-├── README.md                what this project is and how it works
-├── BUILD_AND_RUN.md         install / run / test / package (VN)
-├── bloxorz/
-│   ├── stage.py            level format: JSON/ASCII loading + validation
-│   ├── engine.py           state representation + transition model + rules
-│   ├── search.py           BFS / DFS / IDS / UCS / A* + metrics
-│   └── __init__.py
-├── stages/                 15 stages in 4 difficulty groups
-├── tests/                  pytest suite (unit + all solvers on all stages)
-├── screenshots/            README figures (generated with BLOXORZ_GL_SHOT)
-└── experiments/
-    ├── run_experiments.py  produces results.csv
-    ├── make_charts.py      produces charts/*.png + charts/summary.md
-    └── charts/             tables and figures for the report
+  main.py              API FastAPI (+ phục vụ frontend/dist)
+  bloxorz/game.py      luật chơi, trạng thái, chuyển trạng thái
+  bloxorz/solvers.py   BFS, DFS, UCS, A*, heuristic, đo hiệu năng
+  levels/*.json        21 màn, chia 6 nhóm độ khó
+  benchmark.py         chạy thực nghiệm -> results/benchmark.csv
+  tests/               unit test (python -m unittest discover -s tests)
+  frontend/            React + Three.js (src/engine.ts phản ánh game.py)
 ```
 
-## Game model
+## Định dạng màn chơi (JSON)
 
-**State** (`bloxorz/engine.py`, `GameState` — hashable, used directly as the
-search key):
+Ký hiệu lưới: `.` ô trống, `#` sàn, `S` xuất phát, `G` lỗ đích, `F` gạch dễ vỡ,
+`B` gạch cầu, `o` công tắc mềm, `x` công tắc nặng, `p` công tắc tách.
+`bridges` khai báo từng ô cầu (`id`, `pos`, `open`); `switches` khai báo `targets`
+(id cầu), `mode` (`toggle` | `open` | `close`) và với `p` thì thêm `split_to` (hai vị trí).
+Có thể nạp file JSON riêng ngay trên giao diện.
 
-| Field | Meaning |
-|---|---|
-| `mode` | `"block"` (1×1×2) or `"split"` (two unit cubes) |
-| `orient` | `S` standing, `H` lying horizontally, `V` lying vertically |
-| `pos` | anchor cell for the block, or the pair of cells in split mode |
-| `active` | which cube is controlled in split mode |
-| `bridges` | state of **every** bridge (closed / open / locked) |
+## Mô hình bài toán (dùng cho báo cáo)
 
-Because bridge configuration is part of the state, two positions with different
-bridge layouts are different states — required by the brief.
-
-**Actions:** `U D L R` rolls, `X` switches the active cube. The two cubes merge
-automatically as soon as they occupy adjacent tiles. `Engine.result()` returns
-`None` for illegal moves (void, out of bounds, closed bridge, standing on a
-fragile tile) and applies switch
-effects, including split-switch teleportation.
-
-The geometry of a move is computed once, in `Engine.landing_state()` — the
-state produced *before* switch/teleport effects. Both `Engine.result()` and
-the `risk` cost model are built on it, so the cost function can never
-disagree with the transition model about which switches fire.  Only cells
-newly entered by a move press switches: a stationary cube on a soft switch
-is not re-triggered when the other cube moves. The automatic merge moves no
-cube, so it does not press any switch either.
-
-**Cost functions** (`bloxorz/search.py`): `uniform` (every action costs 1) and
-`risk`, evaluated on the landing state:
-
-| Situation | Cost |
-|---|---|
-| `X` (switch control, nothing moves) | 1 |
-| any action that presses at least one switch | 1 |
-| any other action (roll) | 2 |
-| landing on a fragile tile | +1 |
-
-UCS/A\* default to `risk` so UCS is not just a renamed BFS; every cost is
-≥ 1, which is what keeps the heuristic admissible. BFS/DFS/IDS are
-move-optimal and always report the `uniform` model.
-
-**Heuristic:** pre-computed distance to the goal over the relaxed grid
-(bridges/fragile/switches ignored).  Grid moves cost 1; a split-switch
-teleport is a zero-cost edge from the switch cell to each target, so the
-distances are computed with a 0-1 BFS.  Then `h(s) = min over occupied cells
-of ceil(D(cell, goal) / 2)`.  One roll brings the closest occupied cell up to
-2 cells closer, and a teleport does not add a move of its own (D(source) is
-the minimum over its targets), so the heuristic stays admissible and
-consistent w.r.t. both cost models because every action costs ≥ 1.
-
-## Stage format
-
-```json
-{
-  "name": "Level 4 - Soft Switch",
-  "group": "C - Switches",
-  "description": "...",
-  "map": ["............", "#S###s###0G#", "............"],
-  "start": [1, 1],
-  "bridges": ["closed"],
-  "switches": [
-    {"kind": "soft", "mode": "toggle", "cells": [[1, 5]], "bridges": [0]}
-  ]
-}
-```
-
-Map legend: `#` floor, `.`/space void, `G` goal, `F` fragile, `0-9` bridge,
-`s` soft switch, `x` heavy switch, `t` split switch, `S` start.
-
-The loader rejects unknown `set` values, out-of-range bridge indices, a start
-on fragile/closed-bridge cells, and split switches whose teleport targets are
-duplicated, out of bounds, void, fragile or on a default-closed bridge.
-
-## Tests
-
-```bash
-python -m pytest tests/ -q
-```
-
-168 tests: unit tests for the orientation/transition table, advanced tiles and
-automatic cube merging, every solver replayed end-to-end on every stage (the
-replay must reach the
-goal), BFS-vs-IDS optimality, empirical admissibility/consistency of the
-heuristic (`tests/test_heuristic.py`), the cost models
-(`tests/test_cost_models.py`: switch-landing prices, every transition ≥ 1,
-UCS and A\* agree on the optimal risk cost, IDS stays bounded), and input
-validation for the stage loader, plus regressions for teleport
-heuristics, stationary soft switches, permanent bridges, parser checks,
-timeouts and the two-run measurement mode.
-
-## Experiments
-
-```bash
-python experiments/run_experiments.py            # -> experiments/results.csv
-python experiments/run_experiments.py --runs 5   # more repeats (median time)
-python experiments/run_experiments.py --skip-ids # skip IDS in the sweep
-python experiments/make_charts.py                # -> charts/*.png + summary.md
-```
-
-Measures, for every (stage, algorithm): search time (median of `--runs`
-repeats, default 3, with `tracemalloc` disabled), peak memory from a separate
-`tracemalloc` run, expanded nodes, solution length and path cost.  DFS/IDS
-runs use `--timeout` (default 10 s) and the CSV records `timed_out=True` when
-the limit is hit.  IDS reports its transposition-table size in `max_frontier`.
+- **Trạng thái**: `(o, r, c, r2, c2, act, mask)`: tư thế (`S`, `H`, `V`, hoặc `P` khi đã tách), vị trí,
+  khối đang điều khiển, và bitmask đóng/mở của từng ô cầu.
+  Cùng vị trí nhưng khác cầu là hai trạng thái khác nhau.
+- **Hành động**: `U D L R` và `X` (đổi khối khi đã tách).
+- **Chuyển trạng thái**: bảng (tư thế, hướng) -> (tư thế, vị trí) trong `roll()`; nước đi bất hợp lệ nếu có
+  ô nằm ngoài lưới, ô trống, cầu đang đóng, hoặc đứng thẳng trên gạch dễ vỡ.
+  Công tắc mềm kích hoạt khi bất kỳ phần nào của khối chạm vào; công tắc nặng và công tắc tách chỉ khi khối đứng thẳng.
+  Hai khối nhỏ đứng sát nhau thì tự ghép lại.
+- **Đích**: khối đứng thẳng trên ô `G`.
+- **Hàm chi phí** (UCS, A*): mỗi nước = 1; thêm 2 nếu khối nằm lên gạch dễ vỡ (rủi ro cao); đổi khối `X` = 1.
+  Khối nhỏ không bị phạt vì đủ nhẹ để đi trên gạch dễ vỡ. Nhờ phụ phí này UCS khác BFS ở màn L04, L09 và L19
+  (BFS ít nước nhất, UCS chi phí thấp nhất).
+- **Tránh lặp trạng thái**: tập `visited`/`parent` theo trạng thái ở cả bốn thuật toán.
+- **DFS**: DFS đồ thị (không phải IDS), thứ tự mở rộng U, D, L, R, X; lời giải thường dài và không tối ưu.
+- **Heuristic của A\***: khoảng cách trong bài toán nới lỏng (coi cầu và gạch dễ vỡ như sàn thường, bỏ công tắc),
+  tính bằng một lần BFS ngược từ trạng thái đích.
+  - *Admissible*: mọi nước đi thật đều hợp lệ trong bài toán nới lỏng, và mỗi nước có chi phí >= 1,
+    nên h(n) <= chi phí thật còn lại.
+  - Với màn có công tắc tách (đường thật có thể "dịch chuyển"): trạng thái đã tách có h = 2 (cần tối thiểu
+    một nước ghép và một nước đứng lên lỗ đích); trạng thái khác dùng
+    min(d_đích, d_công_tắc + 2), hoặc +1 nếu hai vị trí `split_to` cạnh nhau (teleport tự ghép ngay).
+    Cả hai vế vẫn là cận dưới.
+  - *Consistency*: không chứng minh được cho phần công tắc tách, nên A* cho phép mở lại nút khi tìm được g nhỏ hơn.
+    Test xác nhận chi phí của A* bằng UCS trên cả 21 màn; kiểm tra fuzz thủ công thêm 300 màn ngẫu nhiên có đủ tile nâng cao.
+- **Đo lường**: thời gian đo ở lần chạy không bật `tracemalloc`; bộ nhớ đỉnh đo ở lần chạy thứ hai bằng
+  `tracemalloc`. Số nút mở rộng tính khi lấy nút ra khỏi hàng đợi (BFS kiểm tra đích khi sinh nút nên không tính nút đích).

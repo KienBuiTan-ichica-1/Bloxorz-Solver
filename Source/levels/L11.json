@@ -1,0 +1,11 @@
+{
+ "id": "L11",
+ "name": "Hành lang đôi",
+ "group": "fragile",
+ "desc": "Hành lang gạch vỡ rộng hai ô: chỉ khối nằm dọc mới băng qua được.",
+ "grid": [
+  "S####.....####",
+  "#####FFFFF####",
+  "#####FFFFF##G#"
+ ]
+}

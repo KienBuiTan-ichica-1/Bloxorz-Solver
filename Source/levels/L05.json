@@ -1,0 +1,17 @@
+{
+  "id": "L05", "name": "Công tắc mềm", "group": "switch",
+  "desc": "Chạm vào công tắc tròn để mở vĩnh viễn cây cầu.",
+  "grid": [
+    "######........",
+    "#S###oBBB#####",
+    "######...##G##"
+  ],
+  "bridges": [
+    {"id": "A", "pos": [1, 6], "open": false},
+    {"id": "A", "pos": [1, 7], "open": false},
+    {"id": "A", "pos": [1, 8], "open": false}
+  ],
+  "switches": [
+    {"pos": [1, 5], "targets": ["A"], "mode": "open"}
+  ]
+}

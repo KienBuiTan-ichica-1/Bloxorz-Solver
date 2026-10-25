@@ -1,0 +1,10 @@
+{
+  "id": "L04", "name": "Chọn đường", "group": "fragile",
+  "desc": "Đường tắt qua gạch dễ vỡ (ít nước nhưng tốn chi phí) hoặc đường vòng an toàn.",
+  "grid": [
+    "............",
+    "#SFF#FF#FFG#",
+    "############",
+    "############"
+  ]
+}

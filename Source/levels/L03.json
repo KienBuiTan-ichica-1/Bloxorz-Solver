@@ -1,0 +1,9 @@
+{
+  "id": "L03", "name": "Cầu mỏng", "group": "fragile",
+  "desc": "Hành lang gạch dễ vỡ: chỉ được nằm trên gạch cam, không được đứng.",
+  "grid": [
+    "###.........",
+    "#SFF#FF#FFG#",
+    "###........."
+  ]
+}

@@ -1,114 +1,89 @@
-"""Bloxorz Solver entry point.
-
-Usage
------
-::
-
-    python main.py                          # launch the GUI (default)
-    python main.py --list                   # list the available stages
-    python main.py --solve BFS              # solve stage 1 without the GUI
-    python main.py --solve A* --stage 7     # solve a specific stage
-    python main.py --solve UCS --cost risk  # choose the UCS/A* cost model
-    python main.py --all                    # run every solver on every stage
-"""
-
-from __future__ import annotations
-
-import argparse
-import sys
+"""Backend FastAPI cho Bloxorz 3D. Chay: python main.py  (hoac uvicorn main:app --reload)."""
+import threading
 from pathlib import Path
+from typing import List, Optional
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
+from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel
 
-from bloxorz.engine import Engine
-from bloxorz.search import SOLVERS, solve
-from bloxorz.stage import load_stages
+from bloxorz import ALGORITHMS, Level, load_levels, solve
 
-STAGE_DIR = Path(__file__).resolve().parent / "stages"
-ACTION_LABELS = {"U": "Up", "D": "Down", "L": "Left", "R": "Right",
-                 "X": "Switch cube"}
+ROOT = Path(__file__).parent
+LEVELS = load_levels(ROOT / "levels")
+LOCK = threading.Lock()  # tracemalloc la toan cuc nen chi cho giai tuan tu
 
-
-def fmt_result(res, name: str) -> str:
-    status = "" if res.found else "  [NO SOLUTION]"
-    return (
-        f"{name:<28} moves={res.solution_length:<4} cost={res.path_cost:<6.1f} "
-        f"expanded={res.expanded_nodes:<7} time={res.search_time_s * 1000:7.2f}ms "
-        f"mem={res.peak_memory_bytes / 1024:7.1f}KiB{status}"
-    )
+app = FastAPI(title="Bloxorz Solver API")
+app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
 
-def cmd_list() -> None:
-    stages = load_stages(STAGE_DIR)
-    if not stages:
-        raise SystemExit(f"No stage JSON files found in {STAGE_DIR}")
-    for i, stage in enumerate(stages, 1):
-        print(f"{i:2}. [{stage.group or '-':16}] {stage.name}")
-        if stage.description:
-            print(f"      {stage.description}")
+class SolveRequest(BaseModel):
+    algorithm: str
+    level_id: Optional[str] = None
+    level: Optional[dict] = None  # man choi tuy chinh (cung dinh dang JSON)
+    max_nodes: int = 2_000_000
 
 
-def cmd_solve(stage_idx: int, algorithm: str, cost_model: str,
-              verbose: bool) -> None:
-    stages = load_stages(STAGE_DIR)
-    if not 1 <= stage_idx <= len(stages):
-        raise SystemExit(f"stage must be between 1 and {len(stages)}")
-    stage = stages[stage_idx - 1]
-    engine = Engine(stage)
-    print(f"Stage {stage_idx}/{len(stages)}: {stage.name}  ({stage.group})")
-    res = solve(engine, algorithm, cost_model=cost_model)
-    print(fmt_result(res, f"{algorithm} [{res.cost_model}]"))
-    if algorithm in ("BFS", "DFS", "IDS") and cost_model != "uniform":
-        print(f"  note: {algorithm} is move-optimal, "
-              f"--cost {cost_model} only applies to UCS/A*")
-    if verbose and res.found:
-        print("Solution:", " ".join(ACTION_LABELS.get(a, a) for a in res.actions))
-    elif not res.found:
-        raise SystemExit(1)
+class BenchmarkRequest(BaseModel):
+    level_ids: Optional[List[str]] = None
+    algorithms: Optional[List[str]] = None
 
 
-def cmd_all(cost_model: str) -> None:
-    stages = load_stages(STAGE_DIR)
-    for i, stage in enumerate(stages, 1):
-        engine = Engine(stage)
-        print(f"\n=== Stage {i}: {stage.name} ===")
-        for algo in SOLVERS:
-            res = solve(engine, algo, cost_model=cost_model)
-            print("  " + fmt_result(res, f"{algo} [{res.cost_model}]"))
+def _check_algo(name: str) -> None:
+    if name not in ALGORITHMS:
+        raise HTTPException(400, f"Thuat toan khong hop le: {name}. Chon: {list(ALGORITHMS)}")
 
 
-def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Bloxorz solver")
-    parser.add_argument("--gui", action="store_true",
-                        help="launch the OpenGL 3D GUI (default when no options given)")
-    parser.add_argument("--list", action="store_true", help="list available stages")
-    parser.add_argument("--solve", metavar="ALGO",
-                        choices=sorted(SOLVERS),
-                        help="run one solver without the GUI")
-    parser.add_argument("--all", action="store_true",
-                        help="run every solver on every stage")
-    parser.add_argument("--stage", type=int, default=1,
-                        help="stage number for --solve (default: 1)")
-    parser.add_argument("--cost", default="risk", choices=["uniform", "risk"],
-                        help="cost model for UCS/A*")
-    parser.add_argument("--verbose", "-v", action="store_true",
-                        help="print the move sequence")
-    args = parser.parse_args(argv)
+@app.get("/api/health")
+def health():
+    return {"ok": True, "algorithms": list(ALGORITHMS)}
 
-    if args.list:
-        cmd_list()
-        return 0
-    if args.solve:
-        cmd_solve(args.stage, args.solve, args.cost, args.verbose)
-        return 0
-    if args.all:
-        cmd_all(args.cost)
-        return 0
 
-    from gui_gl import main as gui_main
-    gui_main()
-    return 0
+@app.get("/api/levels")
+def list_levels():
+    return [lv.data for lv in LEVELS.values()]
 
+
+@app.post("/api/solve")
+def api_solve(req: SolveRequest):
+    _check_algo(req.algorithm)
+    if req.level is not None:
+        try:
+            level = Level(req.level)
+        except (ValueError, KeyError, TypeError, IndexError, AttributeError) as e:
+            raise HTTPException(422, f"Man choi khong hop le: {e}")
+    elif req.level_id in LEVELS:
+        level = LEVELS[req.level_id]
+    else:
+        raise HTTPException(404, "Khong tim thay man choi")
+    with LOCK:
+        return solve(level, req.algorithm, req.max_nodes)
+
+
+@app.post("/api/benchmark")
+def api_benchmark(req: BenchmarkRequest):
+    ids = req.level_ids or list(LEVELS)
+    algos = req.algorithms or list(ALGORITHMS)
+    for a in algos:
+        _check_algo(a)
+    results = []
+    with LOCK:
+        for lid in ids:
+            if lid not in LEVELS:
+                raise HTTPException(404, f"Khong co man {lid}")
+            for a in algos:
+                r = solve(LEVELS[lid], a)
+                r.pop("trace", None)
+                results.append(r)
+    return {"results": results}
+
+
+DIST = ROOT / "frontend" / "dist"
+if DIST.exists():  # neu da build frontend thi phuc vu luon tai http://localhost:8000
+    app.mount("/", StaticFiles(directory=DIST, html=True), name="web")
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    import uvicorn
+
+    uvicorn.run(app, host="127.0.0.1", port=8000)

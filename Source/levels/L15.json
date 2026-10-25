@@ -1,0 +1,134 @@
+{
+ "id": "L15",
+ "name": "Tổng hợp cuối",
+ "group": "combined",
+ "desc": "Tách khối, khối nhỏ băng qua gạch vỡ mở cầu A, ghép lại rồi đứng lên công tắc nặng để hạ cầu B.",
+ "grid": [
+  "S#####............",
+  "######............",
+  "##p###FFFo###.....",
+  "######BBB####BB###",
+  "######BBB##x#BB#G#",
+  "######...####..###"
+ ],
+ "bridges": [
+  {
+   "id": "A",
+   "pos": [
+    3,
+    6
+   ],
+   "open": false
+  },
+  {
+   "id": "A",
+   "pos": [
+    3,
+    7
+   ],
+   "open": false
+  },
+  {
+   "id": "A",
+   "pos": [
+    3,
+    8
+   ],
+   "open": false
+  },
+  {
+   "id": "B",
+   "pos": [
+    3,
+    13
+   ],
+   "open": false
+  },
+  {
+   "id": "B",
+   "pos": [
+    3,
+    14
+   ],
+   "open": false
+  },
+  {
+   "id": "A",
+   "pos": [
+    4,
+    6
+   ],
+   "open": false
+  },
+  {
+   "id": "A",
+   "pos": [
+    4,
+    7
+   ],
+   "open": false
+  },
+  {
+   "id": "A",
+   "pos": [
+    4,
+    8
+   ],
+   "open": false
+  },
+  {
+   "id": "B",
+   "pos": [
+    4,
+    13
+   ],
+   "open": false
+  },
+  {
+   "id": "B",
+   "pos": [
+    4,
+    14
+   ],
+   "open": false
+  }
+ ],
+ "switches": [
+  {
+   "pos": [
+    2,
+    2
+   ],
+   "split_to": [
+    [
+     5,
+     5
+    ],
+    [
+     0,
+     5
+    ]
+   ]
+  },
+  {
+   "pos": [
+    2,
+    9
+   ],
+   "targets": [
+    "A"
+   ],
+   "mode": "open"
+  },
+  {
+   "pos": [
+    4,
+    11
+   ],
+   "targets": [
+    "B"
+   ],
+   "mode": "toggle"
+  }
+ ]
+}
