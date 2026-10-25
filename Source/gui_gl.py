@@ -54,6 +54,7 @@ from bloxorz.search import solve
 from bloxorz.stage import load_stages
 
 from space_background import SpaceBackground
+from board_themes import BOARD_PALETTES, BoardThemes
 
 # --------------------------------------------------------------------------- #
 # layout & palette
@@ -63,41 +64,6 @@ PANEL_W = 310
 MARGIN = 22
 TILE_H = 0.28          # tile thickness (world units)
 BLOCK_ROLL_TIME = 0.24  # seconds for one roll animation
-
-BOARD_PALETTES = [
-    {
-        "name": "Ocean",
-        "floor_top": (0.58, 0.67, 0.77),
-        "floor_side": (0.31, 0.40, 0.52),
-        "bridge_top": (0.57, 0.48, 0.77),
-        "bridge_side": (0.35, 0.27, 0.52),
-        "grid": (0.20, 0.29, 0.40),
-    },
-    {
-        "name": "Forest",
-        "floor_top": (0.46, 0.68, 0.51),
-        "floor_side": (0.22, 0.39, 0.29),
-        "bridge_top": (0.65, 0.68, 0.38),
-        "bridge_side": (0.38, 0.43, 0.22),
-        "grid": (0.19, 0.34, 0.26),
-    },
-    {
-        "name": "Sunset",
-        "floor_top": (0.78, 0.57, 0.43),
-        "floor_side": (0.49, 0.29, 0.23),
-        "bridge_top": (0.79, 0.43, 0.49),
-        "bridge_side": (0.47, 0.24, 0.32),
-        "grid": (0.40, 0.24, 0.22),
-    },
-    {
-        "name": "Violet",
-        "floor_top": (0.65, 0.57, 0.78),
-        "floor_side": (0.37, 0.29, 0.51),
-        "bridge_top": (0.48, 0.63, 0.80),
-        "bridge_side": (0.25, 0.38, 0.54),
-        "grid": (0.30, 0.25, 0.42),
-    },
-]
 
 C = {
     "bg": (0.035, 0.055, 0.090),
@@ -219,6 +185,7 @@ class GUI:
 
         self._setup_gl_state()
         self.space = SpaceBackground(WIN_W, WIN_H, focus=tuple(self.view))
+        self.themes = BoardThemes()
         self.stage_idx = 0
         self.restart()
         self.overlay = "home"
@@ -736,39 +703,7 @@ class GUI:
         return palette["floor_top"]
 
     def _draw_tiles(self):
-        st = self.stage
-        palette = BOARD_PALETTES[self.board_palette_idx]
-        for cell in st.tiles:
-            r, c = cell
-            wx = c - self.ox
-            wz = r - self.oz
-            if cell == st.goal:
-                self._draw_goal(wx, wz)
-                continue
-            idx = st.bridge_cells.get(cell)
-            if idx is not None and not self.engine.bridge_open(self.state.bridges, idx):
-                self._draw_box((wx, -0.28, wz), (1.0, 0.16, 1.0),
-                               C["bridge_closed"])
-                continue
-            top = self._tile_top_color(cell)
-            side = (
-                C["fragile_side"] if cell in st.fragile
-                else palette["floor_side"]
-            )
-            if idx is not None:
-                side = palette["bridge_side"]
-            self._draw_box((wx, -TILE_H / 2, wz), (1.0, TILE_H, 1.0), side, top)
-            if cell in st.fragile:
-                self._draw_fragile_marks(wx, wz)
-            # grid outline
-            GL.glDisable(GL.GL_LIGHTING)
-            GL.glColor4f(*palette["grid"], 0.5)
-            GL.glBegin(GL.GL_LINE_LOOP)
-            h = 0.5
-            for vx, vz in ((-h, -h), (h, -h), (h, h), (-h, h)):
-                GL.glVertex3f(wx + vx, 0.002, wz + vz)
-            GL.glEnd()
-            GL.glEnable(GL.GL_LIGHTING)
+        self.themes.draw(self)
 
     def _draw_fragile_marks(self, wx, wz):
         GL.glDisable(GL.GL_LIGHTING)
@@ -1331,6 +1266,8 @@ class GUI:
             self._rect(*rect, C["btn_hover"] if hovered else C["btn"])
             self._rect(rect.x + 10, rect.y + 10, rect.w - 20, 42,
                        palette["floor_top"])
+            self._rect(rect.x + 10, rect.y + 38, rect.w - 20, 14,
+                       palette["accent"])
             self._border(
                 rect.x, rect.y, rect.w, rect.h,
                 C["accent"] if selected else C["border"],
